@@ -1990,12 +1990,55 @@ window.__BL2_EMBEDDED_ASSETS__={"assets/moveis/estante_lateral.png":"data:image/
   function librarianCollision(npc=currentLibrarian()){
     return npc ? {x:npc.x+npc.collision[0],y:npc.y+npc.collision[1],w:npc.collision[2],h:npc.collision[3]} : null;
   }
+  // V0.5.16–0.5.19: a estante lateral aprovada cruza 26×58px do
+  // colisor da mesa do bibliotecário na planta ORIGINAL. O validador
+  // antigo rejeitava a própria planta que o jogo desenhava.
+  // Permitimos somente a interseção HERDADA, enquanto o NPC mantém sua
+  // posição original e a área de contato não aumenta. Os sprites,
+  // colisores e posições armazenadas permanecem inalterados.
+  function overlapRect(a,b){
+    const x=Math.max(a.x,b.x),y=Math.max(a.y,b.y);
+    const w=Math.min(a.x+a.w,b.x+b.w)-x,h=Math.min(a.y+a.h,b.y+b.h)-y;
+    return w>0&&h>0?{x,y,w,h}:null;
+  }
+  function legacyLibrarianContact(npc,room,obj,currentCollider){
+    if(room.id!=='archive'||obj.id!=='l-shelf-1')return false;
+    const original=baseline.archive?.librarian;
+    const oldShelf=baseline.archive?.objects.find(o=>o.id==='l-shelf-1');
+    if(!original||!oldShelf||npc.id!==original.id||npc.x!==original.x||npc.y!==original.y)return false;
+    const initialCollider={x:original.x+original.collision[0],y:original.y+original.collision[1],w:original.collision[2],h:original.collision[3]};
+    const allowed=overlapRect(initialCollider,oldShelf),actual=overlapRect(currentCollider,obj);
+    return !!allowed&&!!actual&&actual.x>=allowed.x&&actual.y>=allowed.y&&
+      actual.x+actual.w<=allowed.x+allowed.w&&actual.y+actual.h<=allowed.y+allowed.h;
+  }
+  // V0.5.16–0.5.19: a estante lateral aprovada cruza 26×58px do
+  // colisor da mesa do bibliotecário na planta ORIGINAL. O validador
+  // antigo rejeitava a própria planta que o jogo desenhava.
+  // Permitimos somente a interseção HERDADA, enquanto o NPC mantém sua
+  // posição original e a área de contato não aumenta. Os sprites,
+  // colisores e posições armazenadas permanecem inalterados.
+  function overlapRect(a,b){
+    const x=Math.max(a.x,b.x),y=Math.max(a.y,b.y);
+    const w=Math.min(a.x+a.w,b.x+b.w)-x,h=Math.min(a.y+a.h,b.y+b.h)-y;
+    return w>0&&h>0?{x,y,w,h}:null;
+  }
+  function legacyLibrarianContact(npc,room,obj,currentCollider){
+    if(room.id!=='archive'||obj.id!=='l-shelf-1')return false;
+    const original=baseline.archive?.librarian;
+    const oldShelf=baseline.archive?.objects.find(o=>o.id==='l-shelf-1');
+    if(!original||!oldShelf||npc.id!==original.id||npc.x!==original.x||npc.y!==original.y)return false;
+    const initialCollider={x:original.x+original.collision[0],y:original.y+original.collision[1],w:original.collision[2],h:original.collision[3]};
+    const allowed=overlapRect(initialCollider,oldShelf),actual=overlapRect(currentCollider,obj);
+    return !!allowed&&!!actual&&actual.x>=allowed.x&&actual.y>=allowed.y&&
+      actual.x+actual.w<=allowed.x+allowed.w&&actual.y+actual.h<=allowed.y+allowed.h;
+  }
   function validLibrarian(npc,room,allowPlayer=false){
     if(!npc)return true;
     const box=librarianBox(npc),c=librarianCollision(npc);
     if(!box||!c)return false;
     if(box.x<32||box.y<32||box.x+box.w>room.tilesW*TILE-32||box.y+box.h>room.tilesH*TILE-32)return false;
-    if(room.objects.some(o=>o.solid&&c.x<o.x+o.w+2&&c.x+c.w>o.x-2&&c.y<o.y+o.h+2&&c.y+c.h>o.y-2))return false;
+    if(room.objects.some(o=>o.solid&&c.x<o.x+o.w+2&&c.x+c.w>o.x-2&&c.y<o.y+o.h+2&&c.y+c.h>o.y-2&&
+      !legacyLibrarianContact(npc,room,o,c)))return false;
     if((room.scene||[]).some(item=>{const v=sceneFootprint(item);return v&&c.x<v.x+v.w+2&&c.x+c.w>v.x-2&&c.y<v.y+v.h+2&&c.y+c.h>v.y-2;}))return false;
     if(room.doors.some(d=>Math.hypot(Math.max(c.x,Math.min(d.x,c.x+c.w))-d.x,Math.max(c.y,Math.min(d.y,c.y+c.h))-d.y)<38))return false;
     if(Object.values(ROOMS).some(r=>r.doors.some(d=>d.kind!=='reading-trigger'&&d.targetRoom===room.id&&d.targetSpawn&&d.targetSpawn.x+10>c.x&&d.targetSpawn.x-10<c.x+c.w&&d.targetSpawn.y>c.y&&d.targetSpawn.y-16<c.y+c.h)))return false;
@@ -3650,7 +3693,9 @@ async function catalogSnapshot(){
 }
 function localSnapshot(){const result={};for(let i=0;i<localStorage.length;i++){
  const key=localStorage.key(i);
- if(/^(BL2_|bl2-)/.test(key)&&!key.startsWith('BL2_ADM002_'))result[key]=localStorage.getItem(key);
+ // As chaves da sincronização não são parte do acervo nem da planta;
+ // incluí-las na assinatura cria falsos conflitos ao alterar apenas o token/base.
+ if(/^(BL2_|bl2-)/.test(key)&&!/^BL2_ADM00[23]_/.test(key))result[key]=localStorage.getItem(key);
 }return result;}
 async function sha(blob){const bin=await blob.arrayBuffer();const digest=await crypto.subtle.digest('SHA-256',bin);return Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('');}
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
@@ -3733,7 +3778,7 @@ async function restoreArchive(file, options={}){
  try{
   // Layout gravado antes do catálogo; o último passo é recarregar a aplicação.
   localStorage.setItem(LAYOUT_KEY,JSON.stringify(manifest.layout));
-  for(const [key,value] of Object.entries(manifest.local))if(key!==LAYOUT_KEY&&!key.startsWith('BL2_ADM002_'))localStorage.setItem(key,value);
+  for(const [key,value] of Object.entries(manifest.local))if(key!==LAYOUT_KEY&&!/^BL2_ADM00[23]_/.test(key))localStorage.setItem(key,value);
   await writeCatalog(books,manifest.settings);
   editor.applyLayout(manifest.layout);
   if(window.__BL2_DRIVE_SYNC__?.state?.connected && window.__BL2_DRIVE_SYNC__?.state?.headId) localStorage.setItem('BL2_ADM002_base_snapshot',window.__BL2_DRIVE_SYNC__.state.headId);
@@ -3744,7 +3789,7 @@ async function restoreArchive(file, options={}){
  }catch(error){
   // Reverte as alterações do armazenamento local. Se a transação tiver sido concluída, reverte o catálogo também.
   try{if(currentLayoutRaw===null)localStorage.removeItem(LAYOUT_KEY);else localStorage.setItem(LAYOUT_KEY,currentLayoutRaw);
-   for(const key of Object.keys(manifest.local))if(key!==LAYOUT_KEY && !(key in previous))localStorage.removeItem(key);
+   for(const key of Object.keys(manifest.local))if(key!==LAYOUT_KEY&&!/^BL2_ADM00[23]_/.test(key) && !(key in previous))localStorage.removeItem(key);
    for(const [key,value] of Object.entries(previous))localStorage.setItem(key,value);
    await writeCatalog(before.books,before.settings);editor.applyLayout(oldLayout);
   }catch(rollbackError){throw Error('Restauração falhou e a recuperação automática não foi confirmada: '+error.message+'; '+rollbackError.message);}
@@ -3838,7 +3883,8 @@ async function remotePayload(id){const p=await (await api(API+'/'+encodeURICompo
  return p;}
 async function sha(blob){const data=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());return Array.from(new Uint8Array(data),n=>n.toString(16).padStart(2,'0')).join('');}
 // Comparação determinística dos dados sem timestamp/URL do browser; não depende de tamanho dos arquivos.
-function stateProjection(m){return {layout:m.layout,local:Object.fromEntries(Object.entries(m.local||{}).sort(([a],[b])=>a.localeCompare(b))),
+function stateProjection(m){return {layout:m.layout,local:Object.fromEntries(Object.entries(m.local||{})
+ .filter(([key])=>!/^BL2_ADM00[23]_/.test(key)).sort(([a],[b])=>a.localeCompare(b))),
  settings:[...(m.settings||[])].sort((a,b)=>String(a.key).localeCompare(String(b.key))),
  books:[...(m.books||[])].map(x=>({metadata:x.metadata,size:x.size,sha256:x.sha256,mediaType:x.mediaType})).sort((a,b)=>String(a.metadata.id).localeCompare(String(b.metadata.id)))};}
 async function fingerprint(manifest){return sha(new Blob([JSON.stringify(stateProjection(manifest))]));}
@@ -3969,7 +4015,9 @@ async function restoreRemote(automatic=false,verifiedClean=false){if(!ready())th
  const archive=await z.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:4}});
  if(!window.__BL2_ADMIN_BACKUP__?.restoreArchive)throw Error('Módulo ADM-001 indisponível.');
  // A gravação da base só ocorre dentro do commit local ADM-001, imediatamente antes de recarregar.
- const h=source.stateHash||await fingerprint(source.backup);
+ // Recalcular com a projeção canônica: revisões antigas podem conter
+ // chaves técnicas ADM-003 que não representam alterações do usuário.
+ const h=await fingerprint(source.backup);
  const applied=await window.__BL2_ADMIN_BACKUP__.restoreArchive(archive,{silentConfirm:automatic,
   onCommitted:()=>{setBase(head.id);setHash(h);setDirty(false);conflict=false;needsInitialReview=false;}});
  if(applied===false)log('Restauração cancelada. Nenhum dado alterado.');

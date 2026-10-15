@@ -1,12 +1,16 @@
 {
   "project": "Biblioteca Lúdica II",
-  "release": "0.5.19-adm003",
-  "status": "experimental; cloud cross-device validation pending",
-  "base": "v0.5.18-adm002",
-  "published_demo_epub": false,
-  "site_index_sha256": "76cb82bb90831664a94f700b7c0df3f514e42bdc3bc6e79dbd3aa38e98f16647",
-  "site_index_git_blob_sha": "210f8ed45fa1e920fa118385f2608aceb8af0ddb",
-  "previous_main_commit": "7d53d1e48774ea274b36c59846a21cf2513c1f41",
-  "backup_branch": "backup-main-v0518-antes-v0519",
-  "reader_hub_v3": "preserved in the experimental release"
+  "release": "0.5.19.1-adm003-hotfix",
+  "status": "experimental; real Google Drive test pending",
+  "base": "0.5.19-adm003",
+  "site_index_sha256": "7733541b79fddf1463787f0623a303c47b8f3fafdc7ccbe49b2750ec74e1ca91",
+  "site_index_git_blob_sha": "ce954ef43da167d499db12e7a8d38e4119cb9086",
+  "previous_main_commit": "1339c41df808277137cb577ec0357537db9c0f3d",
+  "backup_branch": "backup-main-v0519-antes-hotfix",
+  "graphics_and_reader_unchanged": true,
+  "notes": [
+    "Validacao do bibliotecario: excecao somente para sobreposicao herdada",
+    "Excluir chaves internas ADM-002/ADM-003 da projecao de estado",
+    "Assinatura canonica recalculada na restauracao"
+  ]
 }
