@@ -1,24 +1,23 @@
-# Biblioteca Lúdica II — ADM-002 (v0.5.18 experimental)
+# Biblioteca Lúdica II — v0.5.19 ADM-003 (ramificação de teste)
 
-Aplicação online para GitHub Pages derivada do checkpoint v0.5.16 e da v0.5.17 ADM-001.
+Esta ramificação `teste-v0519-adm003` contém o HTML completo da v0.5.19, sem modificar a ramificação principal `main`, que permanece na v0.5.18 ADM-002.
 
-**Conteúdo público:** `index.html`, `.nojekyll` e este README. Nenhum EPUB de demonstração, token, segredo ou backup administrativo está incorporado à versão web.
+## O que foi preparado
 
-## Sincronização Google Drive
+- Recuperação automática de revisões administrativas do Google Drive após autenticação, quando não há alterações locais pendentes nem edição em andamento.
+- Sincronização automática após salvar e consulta periódica a revisões remotas.
+- Preservação de alterações offline e bloqueio conservador de conflitos, sem exclusão de versões anteriores.
+- Preservação dos módulos gráficos e do Hub EPUB V3.
+- Backup ZIP ADM-001 mantido.
 
-- Cliente OAuth de **Aplicativo Web** configurado pelo administrador em https://console.cloud.google.com/; origem autorizada `https://player2003jl-gif.github.io`.
-- Google Drive API ativada no projeto OAuth e `drive.appdata` solicitado com consentimento.
-- No modo Administração, informar **somente o Client ID (público)**, conectar e escolher entre enviar estado local ou restaurar último estado salvo no Drive.
-- As versões administrativas são JSONs imutáveis; arquivos EPUB/PDF são armazenados no `appDataFolder`, com nome baseado no SHA-256 para impedir reuploads de conteúdo igual. Nenhum arquivo da conta Google é publicado pelo GitHub.
-- Depois do primeiro envio, alterações explicitamente salvas na Administração serão sincronizadas enquanto a conta permanecer conectada e a página estiver aberta. Uma versão mais recente em outro computador bloqueia novos envios até o administrador resolver o conflito.
-- Tokens OAuth ficam apenas na memória; após expiração ou reinício da página será preciso reconectar.
+## Integridade
 
-**Esta distribuição NÃO contém autenticação própria de administração.** O site é público; pessoas podem usar o editor localmente no próprio navegador, mas somente quem autoriza a conta Google com o cliente OAuth permitido poderá criar/recuperar snapshots em sua conta. Para limitar o consentimento OAuth aos responsáveis durante testes, use público Externo / Testing e a lista de usuários de teste no Google Cloud.
+`index.html` tem SHA-256 `76cb82bb90831664a94f700b7c0df3f514e42bdc3bc6e79dbd3aa38e98f16647` e Git blob SHA `210f8ed45fa1e920fa118385f2608aceb8af0ddb`.
 
-**Importante:** a sincronização não publica o catálogo para visitantes. O Drive usa uma pasta oculta, privada por aplicativo. Continue usando o ZIP de backup ADM-001 para cópias independentes. O serviço Google Identity precisa de internet, mas os demais módulos offline continuam funcionando.
+O GitHub Actions reconstruiu este arquivo a partir de um patch compactado que está em `tools/adm003-index.patch.xz.b64`, com verificação SHA-256. A ramificação principal não foi alterada.
 
-## Publicação
+## Como testar
 
-Em `https://github.com/player2003jl-gif/biblioteca-ludica`, substitua o `index.html` pela versão deste pacote, mantendo a branch `main` e o GitHub Pages em `/(root)`. Guarde em privado o checkpoint, backups, livros e credenciais.
+A branch não substitui automaticamente o site público. Use um preview do GitHub Pages, caso habilitado para essa branch, ou baixe os arquivos da branch para execução local. Na avaliação do Google Drive, exporte primeiro um backup privado ADM-001 e use uma conta de testes; confira recuperação entre navegadores, conflitos e reconexão offline.
 
-Esta versão não passou por autenticação real numa conta Google: os fluxos OAuth/Drive foram testados com respostas simuladas; a ativação depende do Client ID do administrador e da sua conferência manual.
+**Limite:** testes simulados não substituem homologação OAuth/Google Drive real. Não publique credenciais, backups ou EPUBs privados no repositório público.
