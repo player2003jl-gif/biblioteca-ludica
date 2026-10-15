@@ -1,0 +1,50 @@
+name: Aplicar ADM-003 na ramificacao de teste
+on:
+  push:
+    branches: [teste-v0519-adm003]
+    paths:
+      - '.github/workflows/aplicar-adm003.yml'
+      - 'tools/adm003-index.patch.xz.b64'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  aplicar:
+    if: github.ref == 'refs/heads/teste-v0519-adm003'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+      - name: Reconstruir a versao integral
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64,lzma,hashlib,pathlib,subprocess
+          html=pathlib.Path('index.html')
+          old='3edd541952b148d953a9cc8309f57efd6677bfc5ab8618fbca0ebe4a7eb2d216'
+          new='76cb82bb90831664a94f700b7c0df3f514e42bdc3bc6e79dbd3aa38e98f16647'
+          current=hashlib.sha256(html.read_bytes()).hexdigest()
+          if current==new:
+              print('Ja atualizado');exit()
+          if current!=old:
+              raise SystemExit('Base inesperada: '+current)
+          p=pathlib.Path('/tmp/adm003.patch')
+          p.write_bytes(lzma.decompress(base64.b64decode(pathlib.Path('tools/adm003-index.patch.xz.b64').read_text().strip())))
+          subprocess.run(['patch','--batch','--fuzz=0','--no-backup-if-mismatch','-p1','-i',str(p)],check=True)
+          resulting=hashlib.sha256(html.read_bytes()).hexdigest()
+          if resulting!=new:
+              raise SystemExit('SHA256 resultante incorreto: '+resulting)
+          print('ADM003 SHA-256 verificado:',resulting)
+          PY
+      - name: Registrar index.html sem alterar main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --staged --quiet; then
+            git commit -m "test: aplicar Biblioteca Ludica II v0.5.19 ADM-003"
+            git push origin HEAD:teste-v0519-adm003
+          fi
