@@ -1,0 +1,49 @@
+name: Aplicar hotfix ADM-003 v0.5.19.1 (somente teste)
+on:
+  push:
+    branches: [fix-v0519-1-adm003]
+    paths:
+      - '.github/workflows/aplicar-adm003-hotfix.yml'
+      - 'tools/adm003-hotfix-v0519-1.patch.xz.b64'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  aplicar:
+    if: github.ref == 'refs/heads/fix-v0519-1-adm003'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Aplicar patch e verificar hash do HTML integral
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64,lzma,hashlib,pathlib,subprocess
+          html=pathlib.Path('index.html')
+          old='76cb82bb90831664a94f700b7c0df3f514e42bdc3bc6e79dbd3aa38e98f16647'
+          new='7733541b79fddf1463787f0623a303c47b8f3fafdc7ccbe49b2750ec74e1ca91'
+          current=hashlib.sha256(html.read_bytes()).hexdigest()
+          if current!=new:
+              if current!=old: raise SystemExit('Base inesperada: '+current)
+              patch=pathlib.Path('/tmp/adm003-hotfix.patch')
+              patch.write_bytes(lzma.decompress(base64.b64decode(pathlib.Path('tools/adm003-hotfix-v0519-1.patch.xz.b64').read_text().strip())))
+              subprocess.run(['patch','--batch','--fuzz=0','--no-backup-if-mismatch','-p1','-i',str(patch)],check=True)
+          data=html.read_bytes()
+          actual=hashlib.sha256(data).hexdigest()
+          blob=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          print('SHA-256:',actual,'Git blob:',blob)
+          if actual!=new or blob!='ce954ef43da167d499db12e7a8d38e4119cb9086':
+              raise SystemExit('Integridade incorreta: não enviar')
+          PY
+      - name: Confirmar correção apenas na ramificação de teste
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --staged --quiet; then
+            git commit -m "hotfix: corrigir restauracao ADM-003 sem alterar layout"
+            git push origin HEAD:fix-v0519-1-adm003
+          fi
