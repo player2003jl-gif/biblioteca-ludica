@@ -1,0 +1,51 @@
+name: Aplicar correção ADM-003.1 v0.5.19.2 (somente teste)
+on:
+  push:
+    branches: [fix-adm0031-v0519-2]
+    paths:
+      - '.github/workflows/adm0031-fix.yml'
+      - 'tools/adm0031-v0519-2.patch.xz.b64'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  corrigir:
+    if: github.ref == 'refs/heads/fix-adm0031-v0519-2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 1
+      - name: Aplicar patch conservador e verificar integridade
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib,hashlib,base64,lzma,subprocess
+          source=pathlib.Path('index.html')
+          old='7733541b79fddf1463787f0623a303c47b8f3fafdc7ccbe49b2750ec74e1ca91'
+          new='182940778aa82e84cab2e188ca8008846ae81d93ace4f6adc9aae2b45098a285'
+          expected_blob='32f9d6b6f8054bec0a78577ad6340110fa82440b'
+          actual=hashlib.sha256(source.read_bytes()).hexdigest()
+          if actual!=new:
+              if actual!=old: raise SystemExit('Base inesperada: '+actual)
+              patch=pathlib.Path('/tmp/adm0031.patch')
+              patch.write_bytes(lzma.decompress(base64.b64decode(pathlib.Path('tools/adm0031-v0519-2.patch.xz.b64').read_text().strip())))
+              subprocess.run(['patch','--batch','--fuzz=0','--no-backup-if-mismatch','-p1','-i',str(patch)],check=True)
+          data=source.read_bytes()
+          sha=hashlib.sha256(data).hexdigest()
+          blob=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          if sha!=new or blob!=expected_blob:
+              raise SystemExit('Integridade do HTML incorreta: '+sha+' / '+blob)
+          print('Verificada v0.5.19.2',sha,blob)
+          PY
+      - name: Registrar correção somente na ramificação experimental
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --staged --quiet; then
+            git commit -m "fix: ADM-003.1 v0.5.19.2 receber estado remoto verificado"
+            git push origin HEAD:fix-adm0031-v0519-2
+          fi
