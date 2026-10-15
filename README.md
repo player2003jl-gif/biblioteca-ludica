@@ -1,21 +1,24 @@
-# Biblioteca Lúdica II — v0.5.19.1 ADM-003 (correção)
+# Biblioteca Lúdica II — v0.5.19.2 ADM-003.1 (experimental)
 
-Versão pública de manutenção da v0.5.19, com correções de compatibilidade do layout e estabilidade das assinaturas de sincronização. **Experimental:** a sincronização Google Drive entre navegadores reais continua pendente de homologação.
+**Biblioteca pública:** https://player2003jl-gif.github.io/biblioteca-ludica/
 
-Aplicação: https://player2003jl-gif.github.io/biblioteca-ludica/
+A v0.5.19.2 corrige a recepção automática de revisões administrativas do Google Drive entre navegadores, sem alterar a experiência gráfica nem o Hub EPUB V3.
 
 ## Correções
-- O bibliotecário da Biblioteca permanece na posição original. A validação agora admite exclusivamente a pequena sobreposição herdada com a estante lateral, sem permitir novas colisões.
-- As chaves técnicas BL2_ADM002_* e BL2_ADM003_* deixam de integrar o conteúdo e a assinatura dos backups administrativos, evitando falsos conflitos de sincronização.
-- Na restauração de revisões antigas, a assinatura canônica é recalculada sem alterar os livros, sprites ou posições do layout.
+- Revisões remotas recentes são recebidas automaticamente quando a assinatura local coincide com a última revisão conhecida e não há edições locais pendentes.
+- O modo de edição aberto adia a aplicação da revisão remota até que seja seguro, sem produzir falso conflito.
+- Pendências de conflito indevidas de versões anteriores não impedem o recebimento quando as assinaturas provam ausência de mudanças locais.
+- Revisões concorrentes ou mudanças locais continuam exigindo decisão expressa do administrador.
+- Nova verificação antes da restauração impede sobrescrever modificações iniciadas durante um download.
 
-## Integridade e segurança
-- SHA-256 do index.html: `7733541b79fddf1463787f0623a303c47b8f3fafdc7ccbe49b2750ec74e1ca91`.
-- Git blob SHA: `ce954ef43da167d499db12e7a8d38e4119cb9086`.
-- Backup da versão v0.5.19 original: `backup-main-v0519-antes-hotfix`.
-- Backup da v0.5.18: `backup-main-v0518-antes-v0519`.
-- Histórico de correção: `fix-v0519-1-adm003`.
+## Integridade e continuidade
+- SHA-256 do `index.html`: `182940778aa82e84cab2e188ca8008846ae81d93ace4f6adc9aae2b45098a285`
+- Git blob SHA do `index.html`: `32f9d6b6f8054bec0a78577ad6340110fa82440b`
+- Commit anterior público: `5607e52c91742a53b9bd1000f7a675c509fd318c`
+- Backup anterior: `backup-main-v0519-1-antes-adm0031`
+- A implementação foi testada com navegadores simulados; o teste com Google Drive real deve ser repetido para homologação.
 
-O código foi verificado com testes de contrato simulados, validação específica da geometria herdada e comparação binária reversível que confirma a preservação integral do HTML fora dos três módulos corrigidos.
+## Segurança
+O GitHub Pages é público e não fornece autenticação própria à interface administrativa. A conta Google conectada protege o armazenamento privado do Drive; os dados dessa conta não se tornam públicos. Não publicar livros privados, tokens, segredos ou backups no repositório público.
 
-**Importante:** mantenha cópias ZIP ADM-001 independentes; o GitHub Pages é público e não fornece autenticação de Administração. Nenhuma credencial nem EPUB pessoal devem ser enviados ao repositório.
+Continue exportando backups ZIP ADM-001 independentes. A publicação para visitantes e o controle de autorização de alterações oficiais continuam sendo objetivos do plano de conclusão do hub.

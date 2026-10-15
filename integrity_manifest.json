@@ -1,16 +1,17 @@
 {
   "project": "Biblioteca Lúdica II",
-  "release": "0.5.19.1-adm003-hotfix",
-  "status": "experimental; real Google Drive test pending",
-  "base": "0.5.19-adm003",
-  "site_index_sha256": "7733541b79fddf1463787f0623a303c47b8f3fafdc7ccbe49b2750ec74e1ca91",
-  "site_index_git_blob_sha": "ce954ef43da167d499db12e7a8d38e4119cb9086",
-  "previous_main_commit": "1339c41df808277137cb577ec0357537db9c0f3d",
-  "backup_branch": "backup-main-v0519-antes-hotfix",
-  "graphics_and_reader_unchanged": true,
-  "notes": [
-    "Validacao do bibliotecario: excecao somente para sobreposicao herdada",
-    "Excluir chaves internas ADM-002/ADM-003 da projecao de estado",
-    "Assinatura canonica recalculada na restauracao"
-  ]
+  "release": "0.5.19.2-adm0031",
+  "status": "experimental; cross-browser automatic sync real validation pending",
+  "base": "0.5.19.1-adm003-hotfix",
+  "site_index_sha256": "182940778aa82e84cab2e188ca8008846ae81d93ace4f6adc9aae2b45098a285",
+  "site_index_git_blob_sha": "32f9d6b6f8054bec0a78577ad6340110fa82440b",
+  "previous_main_commit": "5607e52c91742a53b9bd1000f7a675c509fd318c",
+  "backup_branch": "backup-main-v0519-1-antes-adm0031",
+  "features": [
+    "remote update without local changes",
+    "editor-aware safe receive",
+    "legacy false-conflict recovery",
+    "pre-restore mutation check"
+  ],
+  "graphics_and_reader_unchanged": true
 }
