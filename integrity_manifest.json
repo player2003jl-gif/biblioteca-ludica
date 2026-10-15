@@ -1,0 +1,40 @@
+{
+  "release": "0.5.17-adm001",
+  "base": "v0.5.16",
+  "published_demo_epub": false,
+  "site_index_sha256": "a4d60d307bd324b32975eac7b40e10e339b60955bf9907d4d3b65a9c212d1218",
+  "modules": {
+    "app.js": {
+      "unchanged": true,
+      "sha256": "91ec23947a28ef817f43fe78e05a585cab884ad637f1663a7bbc5dcf16ea6046"
+    },
+    "editor.js": {
+      "unchanged": true,
+      "sha256": "9e39c562198e16960f23b85753cd788288f768462286d27d2740ffac731d2266"
+    },
+    "catalog.js": {
+      "unchanged": true,
+      "sha256": "b38ee6bd6215da61cffb1bf692b2d082cc74ac747b1546d8d406f1220060ed1d"
+    },
+    "reader-premium.js": {
+      "unchanged": true,
+      "sha256": "b0d4f821885a48bbce68f8402ed5c437446c2ac3ad77086212a3ba5f131f5e27"
+    },
+    "reader-premium.css": {
+      "unchanged": true,
+      "sha256": "ae89da68a24a5197ed6a18fd954aecdcc31579dc0cc28f5952635db917f6da81"
+    },
+    "reader-hub.css": {
+      "unchanged": true,
+      "sha256": "9289ce4959a61b4da8cfa20777d5b0a25e018984ca0076b02e2edfbd4c837d23"
+    },
+    "shelf-hub.css": {
+      "unchanged": true,
+      "sha256": "72b36ac3787281e9065622ad6e3cbcf8b45640ac7bbafc3e9369b7ca2d3631d2"
+    },
+    "fullscreen.js": {
+      "unchanged": true,
+      "sha256": "d6e1ebb4b173ebe3de5da71755c074978c4519603ab0a61ee535ba4bda74921a"
+    }
+  }
+}

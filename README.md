@@ -1,35 +1,30 @@
-# Biblioteca Lúdica II — v0.5.16 (pacote de publicação)
+# Biblioteca Lúdica II — ADM-001, etapa 1 — v0.5.17 experimental
 
-Versão web de testes, derivada do checkpoint de 15/10/2026. Não substitui o checkpoint original.
+**Base:** checkpoint v0.5.16, preservado integralmente.
 
-## Conteúdo
+## O que foi implementado
 
-- `index.html`: aplicação em arquivo único (CSS, JavaScript e imagens incorporados).
-- `.nojekyll`: desativa o processamento Jekyll no GitHub Pages.
-- `README.md`: orientações de publicação.
+No modo Administração, há uma área `Preservação administrativa · ADM-001` com:
 
-## Publicação pelo GitHub Pages
+- **Exportar backup integral (.zip)**: inclui o layout v7, dimensões de salas, portas, móveis, NPC, objetos, modos de interação, chaves locais `BL2_` e `bl2-`, configurações do IndexedDB, registros bibliográficos e todos os arquivos EPUB/PDF importados armazenados no IndexedDB.
+- **Restaurar backup integral (.zip)**: exige confirmação, valida formato, schema, nomes de arquivos, tamanhos e SHA-256 de cada obra antes de alterar qualquer dado, verifica compatibilidade da planta e usa transação atômica para os livros e configurações. Em caso de falha tenta recuperar os dados anteriores.
+- Compatibilidade: chaves `BL2_layout_044_TWO_ROOMS` e `bl2-catalog-v03` preservadas. Leitura, sprites e módulos consolidados continuam iguais.
 
-**ATENÇÃO: GitHub Pages no plano GitHub Free requer repositório público. Não há proteção por login equivalente ao Cloudflare Access. Não habilite Pages se precisar manter a biblioteca privada.**
+## Como usar no GitHub Pages
 
-1. Crie um repositório com nome `biblioteca-ludica-ii` em https://github.com/new.
-2. Comece com visibilidade **Private**, enquanto define o modelo de acesso.
-3. Use `Add file > Upload files` para enviar os arquivos extraídos deste pacote. O `index.html` tem 20.9 MB; o upload web costuma aceitar arquivos de até 25 MiB.
-4. Confirme o commit dos arquivos.
-5. **Somente após autorizar a publicação pública**: torne o repositório público (se estiver no plano GitHub Free), abra `Settings > Pages`, configure `Deploy from a branch`, `main`, pasta `/ (root)` e salve.
-6. O URL de projeto será da forma `https://SEU_USUARIO.github.io/biblioteca-ludica-ii/`.
-7. Teste navegação, sprites, catálogo, importação e retorno de leitura no navegador. Os dados administrativos continuam locais; a sincronização com Google Drive não foi implementada.
+1. Guarde cópias do checkpoint v0.5.16. No site atualmente publicado **v0.5.16**, use Administração > Salvar ambiente e **Exportar JSON**, e guarde também os EPUBs originais; a função de backup integral só aparece na v0.5.17.
+2. Na sua conta GitHub, abra o repositório `player2003jl-gif/biblioteca-ludica`.
+3. Faça upload dos arquivos extraídos do pacote público v0.5.17, substituindo `index.html` e mantendo `.nojekyll` e `README.md`. Não envie o ZIP de checkpoint ou backups do administrador ao repositório público.
+4. Verifique o GitHub Pages no mesmo endereço `https://player2003jl-gif.github.io/biblioteca-ludica/` e teste os ambientes.
+5. Entre em Administração > Salvar ambiente > **Exportar backup integral (.zip)** e guarde o arquivo em pasta privada do seu computador. Teste a restauração em perfil de navegador separado antes de confiar nele como único backup.
 
-## Preservação
+## O que NÃO está implementado
 
-Não apague nem substitua o arquivo original `Biblioteca_Ludica_II_CHECKPOINT_V066_AVATAR_SUBSTITUIDO_2026-10-15.zip`.
-A publicação web não é um backup das alterações do administrador, e não contém necessariamente todos os dados do catálogo.
-Não inclua EPUBs privados ou protegidos por direitos autorais em repositório público.
+- Sincronização automática com Google Drive, GitHub ou entre dispositivos.
+- Autenticação/administração remota com acesso exclusivo: **o GitHub Pages é público e o editor nesta versão permanece local ao navegador**.
+- Migração automática entre esquemas futuros ainda não conhecidos. Formatos novos precisarão de migrações verificáveis.
+- Garantia de preservação se o usuário apagar dados do navegador, trocar domínio/origem ou utilizar armazenamento privado/incógnito sem backup.
 
-Hash SHA-256 de `index.html`: `ebd87b7dc30d3b3f40f41a61a1794b3b3e2aa698218111402fcbb87ac2ac0d2d`.
+**Segurança:** o backup pode conter EPUBs e anotações privadas. Nunca envie esses arquivos ao repositório público. Para portabilidade, use somente obras que você possui e tem autorização de armazenar/distribuir, respeitando direitos autorais.
 
-## Limitações conhecidas
-
-- O arquivo HTML contém referências textuais antigas de versão `v0.5.8` em partes da interface, herdadas do checkpoint, mas não deve ser confundido com a versão de desenvolvimento v0.5.16.
-- O livro de demonstração citado em certos metadados antigos não está incluído neste pacote.
-- Testes completos de compatibilidade no GitHub Pages ainda não foram realizados.
+**Limitação de homologação:** testes de contrato e sintaxe passaram; o Chromium disponível bloqueou toda navegação de teste por política administrativa (`net::ERR_BLOCKED_BY_ADMINISTRATOR`). Por isso ainda falta testar visualmente exportação/restauração em navegadores reais. A versão atual no GitHub não foi modificada automaticamente.
