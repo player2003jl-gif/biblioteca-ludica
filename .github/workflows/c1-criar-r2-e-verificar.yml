@@ -1,0 +1,70 @@
+name: C1 - verificar R2 com arquivo ficticio
+
+on:
+  push:
+    branches: [infra-c1-cloudflare-20261016]
+    paths: ['.github/workflows/c1-criar-r2-e-verificar.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bl2-c1-r2-verificacao
+  cancel-in-progress: false
+
+jobs:
+  r2-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: backend/c1-cloudflare/r2-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Executar testes locais
+        run: node --test test/*.test.mjs
+      - name: Criar ou reutilizar somente o bucket de homologacao R2 Standard
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 scripts/ensure_bucket.py
+      - name: Gravar exclusivamente texto ficticio no bucket de testes
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          test "$(wc -c < demo-book.txt)" -lt 1024
+          npx --yes wrangler@4.45.0 r2 object put bl2-c1-teste-r2/c1/livro-ficticio.txt --file demo-book.txt --content-type text/plain --storage-class Standard --remote
+      - name: Implantar somente Worker R2 de leitura
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.45.0 deploy --config wrangler.jsonc
+      - name: Confirmar HTTP publico e conteudo de demonstracao
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://bl2-c1-r2-verificacao.chatgptset26.workers.dev"
+          for path in health demo-book; do
+            ok=0
+            for attempt in 1 2 3 4 5; do
+              if curl -fsS --connect-timeout 8 --max-time 15 "$base/api/$path" -o "$RUNNER_TEMP/c1-r2-$path"; then ok=1; break; fi
+              sleep 5
+            done
+            if [ "$ok" -ne 1 ]; then echo "FALHA: nao respondeu /api/$path" >&2; exit 1; fi
+          done
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])
+          h=json.loads((p/"c1-r2-health").read_text())
+          t=(p/"c1-r2-demo-book").read_text()
+          assert h["status"]=="ok" and h["r2"]=="ok" and h["production"] is False
+          assert h["bucket"]=="bl2-c1-teste-r2"
+          assert t.startswith("Biblioteca Ludica II: C1 R2 demo, nenhum livro real.")
+          print("OK: bucket R2 privado Standard com texto ficticio acessivel pelo Worker.")
+          print("OK: nenhum EPUB, layout real ou arquivo do Google Drive envolvido.")
+          PY
