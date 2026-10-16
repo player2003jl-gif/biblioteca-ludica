@@ -1,0 +1,40 @@
+name: C2 - conferir preview GitHub Pages e API D1
+on:
+  push:
+    branches: [preview-c2-cloudflare-20261016]
+    paths: ['.github/workflows/conferir-preview-c2.yml']
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Conferir rota da nova subpasta no GitHub Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://player2003jl-gif.github.io/biblioteca-ludica/homologacao-cloudflare-c2"
+          code=$(curl -sSL --max-time 30 -o /dev/null -w '%{http_code}' "$base/")
+          test "$code" = 200 || { echo "Pagina experimental nao acessivel: HTTP $code" >&2; exit 1; }
+          curl -fsSL --max-time 20 "$base/cloudflare-c2.js" -o "$RUNNER_TEMP/cloudflare-c2.js"
+          node --check "$RUNNER_TEMP/cloudflare-c2.js"
+          grep -q "bl2-c2-estante-verificacao" "$RUNNER_TEMP/cloudflare-c2.js"
+          echo "OK: GitHub Pages entrega HTML e ponte visual D1."
+      - name: Conferir API D1 publica e CORS para o Github Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://bl2-c2-estante-verificacao.chatgptset26.workers.dev/api/shelf"
+          curl -fsS --max-time 15 -H "Origin: https://player2003jl-gif.github.io" -D "$RUNNER_TEMP/headers" "$url" -o "$RUNNER_TEMP/shelf.json"
+          grep -qi '^access-control-allow-origin: https://player2003jl-gif.github.io' "$RUNNER_TEMP/headers"
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          data=json.loads((Path(os.environ["RUNNER_TEMP"])/"shelf.json").read_text())
+          shelf=data["shelf"]
+          assert shelf["id"]=="c1-estante"
+          assert isinstance(shelf["title"],str) and shelf["title"]
+          assert isinstance(shelf["version"],int) and shelf["version"]>=1
+          print("OK: D1 remoto retornou estante e revisao; CORS autorizado para a origem do jogo.")
+          PY
