@@ -61,7 +61,12 @@ jobs:
           set -euo pipefail
           base='https://bl2-c3-admin-verificacao.chatgptset26.workers.dev'
           for route in health shelf; do
-            curl -fsS --max-time 20 "$base/api/$route" -o "$RUNNER_TEMP/c3-$route.json"
+            ok=0
+            for attempt in 1 2 3 4 5 6; do
+              if curl -fsS --connect-timeout 8 --max-time 18 "$base/api/$route" -o "$RUNNER_TEMP/c3-$route.json"; then ok=1; break; fi
+              sleep 5
+            done
+            if [ "$ok" -ne 1 ]; then echo "FALHA: GET /api/$route nao respondeu apos retries" >&2; exit 1; fi
           done
           status=$(curl -sS -o "$RUNNER_TEMP/c3-deny.json" -w '%{http_code}' --max-time 20 -X PATCH "$base/api/admin/shelf" -H 'Content-Type: application/json' --data '{"title":"hack","expectedVersion":1}')
           test "$status" = 401 || { echo "FALHA: escrita anonima retornou HTTP $status, esperado 401" >&2; exit 1; }
