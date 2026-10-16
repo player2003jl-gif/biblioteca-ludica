@@ -1,0 +1,64 @@
+name: C1 - D1 experimental e estante ficticia
+on:
+  push:
+    branches: [infra-c1-cloudflare-20261016]
+    paths: ['.github/workflows/c1-criar-d1-e-verificar.yml']
+permissions:
+  contents: read
+concurrency:
+  group: bl2-c1-d1-verificacao
+  cancel-in-progress: false
+jobs:
+  database-and-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: backend/c1-cloudflare/d1-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Executar testes locais
+        run: node --test test/*.test.mjs
+      - name: Selecionar ou criar apenas o banco de homologacao
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 scripts/setup_d1.py
+      - name: Aplicar migracao somente ao D1 experimental
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.45.0 d1 migrations apply DB --remote --config wrangler.jsonc
+      - name: Implantar Worker D1 somente leitura
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.45.0 deploy --config wrangler.jsonc
+      - name: Validar consultas HTTPS contra D1 real
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://bl2-c1-d1-verificacao.chatgptset26.workers.dev"
+          for path in health shelf; do
+            ok=0
+            for attempt in 1 2 3 4 5; do
+              if curl -fsS --connect-timeout 8 --max-time 15 "$base/api/$path" -o "$RUNNER_TEMP/c1-$path.json"; then ok=1; break; fi
+              sleep 5
+            done
+            if [ "$ok" -ne 1 ]; then echo "FALHA: HTTPS nao retornou GET /api/$path" >&2; exit 1; fi
+          done
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ["RUNNER_TEMP"])
+          h=json.loads((p/"c1-health.json").read_text())
+          s=json.loads((p/"c1-shelf.json").read_text())
+          assert h["status"]=="ok" and h["d1"]=="ok"
+          assert h["r2"]=="not-configured" and h["production"] is False
+          assert s["shelf"]["id"]=="c1-estante" and s["shelf"]["version"]>=1
+          assert s["shelf"]["title"]
+          print("OK: D1 real e estante ficticia confirmados via HTTPS")
+          PY
