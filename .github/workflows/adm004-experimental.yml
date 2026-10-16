@@ -1,0 +1,51 @@
+name: Testar ADM-004 sem publicar
+on:
+  push:
+    branches: [fix-adm004-v0519-3]
+    paths:
+      - '.github/workflows/adm004-experimental.yml'
+      - 'tools/adm004-v0519-3.patch.xz.b64'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  aplicar:
+    if: github.ref == 'refs/heads/fix-adm004-v0519-3'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Aplicar patch e verificar SHA-256 e Git blob
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,lzma,hashlib,subprocess
+          html=Path('index.html')
+          antigo='182940778aa82e84cab2e188ca8008846ae81d93ace4f6adc9aae2b45098a285'
+          novo='767631ee155b75c6ae9a8af05028e95d74bf67b0dcb2c2148d1f79025864df52'
+          blobEsperado='e5afb3f9579f0715af96b2f46631aa326320e9de'
+          current=hashlib.sha256(html.read_bytes()).hexdigest()
+          if current!=novo:
+              if current!=antigo:raise SystemExit('Base inesperada: '+current)
+              patch=Path('/tmp/adm004.patch')
+              patch.write_bytes(lzma.decompress(base64.b64decode(Path('tools/adm004-v0519-3.patch.xz.b64').read_text().strip())))
+              subprocess.run(['patch','--batch','--fuzz=0','--no-backup-if-mismatch','-p1','-i',str(patch)],check=True)
+          data=html.read_bytes()
+          actual=hashlib.sha256(data).hexdigest()
+          blob=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+          if actual!=novo or blob!=blobEsperado:raise SystemExit('Integridade da ADM-004 não conferiu: '+actual+' / '+blob)
+          print('SHA256:',actual,'blob:',blob)
+          PY
+      - name: Commit somente na ramificação experimental
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if ! git diff --staged --quiet; then
+            git commit -m "test: implementar ADM-004 canônico e restauração sem reload"
+            git push origin HEAD:fix-adm004-v0519-3
+          fi
