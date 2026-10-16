@@ -1,0 +1,65 @@
+name: C1 - verificar conexao Cloudflare (somente leitura)
+
+on:
+  push:
+    branches:
+      - infra-c1-cloudflare-20261016
+    paths:
+      - .github/workflows/c1-verificar-cloudflare.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-conexao:
+    name: Verificar token, conta e acesso aos Workers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validar credenciais Cloudflare sem imprimir segredos
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.request
+
+          token = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+          account = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+          if len(token) < 20 or len(account) != 32 or any(c not in "0123456789abcdefABCDEF" for c in account):
+              raise SystemExit("FALHA: os dois segredos precisam existir e o Account ID precisa ter 32 digitos hexadecimais.")
+
+          def request(path):
+              req = urllib.request.Request(
+                  "https://api.cloudflare.com/client/v4" + path,
+                  headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
+                  method="GET"
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as exc:
+                  raise RuntimeError("Cloudflare recusou uma consulta de verificacao (HTTP %s)." % exc.code) from None
+              except Exception as exc:
+                  raise RuntimeError("Falha de rede ao contatar a Cloudflare (%s)." % type(exc).__name__) from None
+
+          try:
+              verified = request("/user/tokens/verify")
+              if not verified.get("success") or verified.get("result", {}).get("status") != "active":
+                  raise RuntimeError("Token nao esta ativo.")
+              print("OK: token ativo.")
+
+              scripts = request("/accounts/" + account + "/workers/scripts?per_page=1")
+              if not scripts.get("success"):
+                  raise RuntimeError("Conta nao acessivel com a permissao Workers Scripts.")
+              print("OK: Account ID e acesso de leitura aos Workers validados.")
+              print("Nenhum Worker, banco D1 ou bucket R2 foi criado ou modificado.")
+          except RuntimeError as exc:
+              sys.exit("FALHA: " + str(exc))
+          PY
