@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <title>Biblioteca Lúdica II — HOMOLOGAÇÃO ISOLADA ADM-004</title>
+  <title>Biblioteca Lúdica II — HOMOLOGAÇÃO ISOLADA ADM-004.1</title>
   <style>
 :root{color-scheme:dark;--ink:#ede2cf;--muted:#a9a196;--bg:#15191d;--card:#24292d;--line:#45433c;--highlight:#dbac62;--panel:#1e2327;--red:#c76d6d;--green:#9ecb9d}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 60% -25%,#36332d,#13191b 58%);font:15px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--ink);min-height:100vh}.app-shell{max-width:1190px;margin:auto;padding:22px clamp(10px,3vw,36px)}.topbar{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:0 auto 23px;max-width:1080px}.brand{display:flex;align-items:center;gap:13px}.brand-symbol{display:grid;place-items:center;width:42px;height:42px;border:1px solid #7b6749;background:#292c2a;border-radius:9px;color:#e2b673;font-size:27px}.brand strong{display:block;font-family:Georgia,serif;font-size:21px;letter-spacing:.025em}.brand small{color:var(--muted);display:block;font-size:11px;letter-spacing:.05em}.top-actions{display:flex;align-items:center;gap:14px}.status{font-size:12px;white-space:nowrap;color:var(--green)}.status.error{color:#f0a19d}.status.warn{color:#e0c07d}button{background:#363738;color:var(--ink);border:1px solid #676052;border-radius:8px;font:inherit;padding:10px 14px;cursor:pointer;transition:border-color .12s,background .12s,transform .12s}button:hover{background:#414039;border-color:#c4a06b}button:focus-visible{outline:2px solid #f4c879;outline-offset:2px}button.primary{background:#ac793e;border-color:#e4b877;color:#191e20;font-weight:700}button.primary:hover{background:#deb173}button.danger{background:#74413b;border-color:#ac665f}button.subtle-button{background:transparent;border-color:#454a4b;font-size:12px;padding:7px 11px}kbd{font:11px/1.3 ui-monospace,Consolas,monospace;background:#2c2e30;border:1px solid #66645c;border-bottom-width:2px;border-radius:4px;padding:2px 5px;color:#ecd6ab}.game-frame{width:min(100%,1056px);margin:auto;background:#101112;border:7px solid #373632;outline:1px solid #6a5743;border-radius:12px;box-shadow:0 20px 65px #0008,0 0 0 3px #1b1d1c;overflow:hidden}.viewport{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#171b22}canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;outline:none}.hud{position:absolute;display:flex;align-items:center;gap:8px;pointer-events:none;background:#181c21e6;backdrop-filter:blur(4px);border:1px solid #75634e;color:#f6e6cb;font-size:clamp(10px,1.3vw,13px);padding:6px 10px;border-radius:7px}.top-left{left:15px;top:12px}.top-right{right:15px;top:12px}.small-icon{font-size:16px;color:#d7a563}.separator{opacity:.6}.bottom-left{bottom:14px;left:14px;color:#e5cfad;font-size:11px}.bottom-center{bottom:14px;left:50%;transform:translateX(-50%);white-space:nowrap}.screen-overlay{position:absolute;inset:0;display:grid;place-items:center;background:#12171bdc;padding:12px;z-index:10}.screen-overlay.hidden{display:none}.welcome-panel{width:min(540px,92%);text-align:center;padding:22px 8px}.eyebrow{display:block;font-size:10px;letter-spacing:.23em;font-weight:800;color:#d1ab74}.welcome-panel h1{font-family:Georgia,serif;font-size:clamp(24px,3.4vw,42px);line-height:1.15;margin:10px 0 18px;font-weight:600}.welcome-panel h1 span{color:#e4b875}.welcome-panel p{color:#d0c7bb;max-width:455px;margin:0 auto 22px;font-size:14px}.main-buttons{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}.main-buttons button{min-width:156px}.welcome-panel .footnote{color:#aaa397;font-size:11px;margin:20px auto 0}.dialog{background:linear-gradient(145deg,#292b2a,#1b2125);border:1px solid #9a794e;box-shadow:0 18px 50px #000a;border-radius:12px;width:min(400px,96%);padding:23px}.dialog h2{font:28px Georgia,serif;margin:7px 0 19px}.dialog p,.dialog small{color:#d0c5b3}.dialog small{display:block;text-align:center;margin-top:10px}.stack-buttons{display:grid;gap:9px}.stack-buttons button{text-align:left}.info-dialog{width:min(440px,98%)}.info-dialog ul{padding-left:17px;color:#dbd0bd;font-size:13px}.info-dialog li{margin:8px 0}.info-dialog button{margin-top:9px;width:100%}.two-buttons{display:flex;gap:9px}.two-buttons>*{flex:1}.toast{position:absolute;top:62px;left:50%;max-width:90%;transform:translate(-50%,-15px);background:#303136f0;border:1px solid #b18a55;box-shadow:0 4px 12px #0007;border-radius:7px;padding:8px 13px;color:#fff1d5;opacity:0;pointer-events:none;z-index:7;transition:opacity .18s,transform .18s;font-size:12px}.toast.visible{opacity:1;transform:translate(-50%,0)}.toast.error{border-color:var(--red)}.footer-bar{max-width:1060px;margin:12px auto 0;display:flex;gap:20px;justify-content:space-between;flex-wrap:wrap;color:#c6bfb5;font-size:12px}.footer-bar kbd{font-size:10px;padding:1px 4px}.build-text{color:#8a8e8d}.diagnostics{max-width:1060px;margin:22px auto 0;background:#1c2124;border:1px solid #615a4e;border-radius:12px;padding:21px}.diagnostics[hidden]{display:none}.diagnostics-heading{display:flex;justify-content:space-between;align-items:center}.diagnostics h2{font:23px Georgia,serif;margin:3px 0 10px}.diagnostics h2 small{font:12px ui-monospace;color:#cdb88c}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:8px 0 14px}.stat{background:#293035;border:1px solid #40494a;border-radius:7px;padding:9px}.stat label{display:block;font-size:10px;color:#b5aca0}.stat strong{display:block;font:13px ui-monospace,monospace;margin-top:3px;color:#f4ddb5;word-break:break-all}.diagnostics-actions{display:flex;gap:8px;flex-wrap:wrap}.diagnostics-actions button{font-size:12px;padding:7px 10px}.diagnostics h3{font-size:13px;margin:16px 0 7px}.event-log{max-height:154px;overflow:auto;background:#101618;border-radius:7px;padding:8px 12px;font:11px/1.8 ui-monospace,Consolas,monospace;color:#b6bdb7}.event-log .error{color:#f0a39a}.event-log .warn{color:#f0ca79}.diagnostics-foot{color:#9d9f9b;font-size:11px}.app-footer{text-align:center;color:#808887;font-size:11px;margin:23px auto}@media(max-width:690px){.topbar{align-items:flex-start}.brand strong{font-size:16px}.brand small{font-size:9px}.brand-symbol{width:34px;height:34px}.top-actions{display:grid;justify-items:end;gap:6px}.top-actions .status{font-size:10px}.top-actions button{font-size:10px}.footer-bar{gap:8px;font-size:10px}.dialog{padding:14px}.dialog h2{font-size:22px}.welcome-panel{padding:2px}.welcome-panel p{font-size:11px;margin-bottom:10px}.welcome-panel .footnote{font-size:9px;margin-top:10px}.welcome-panel h1{margin:5px 0}.main-buttons button{font-size:11px;padding:6px;min-width:auto}.game-frame{border-width:3px}.hud{padding:3px 5px;font-size:8px}.top-left{top:5px;left:5px}.top-right{top:5px;right:5px}.bottom-left{bottom:5px;left:5px;font-size:8px}.bottom-center{bottom:5px}.dialog small{display:none}}
@@ -169,7 +169,7 @@ html:fullscreen .app-footer {display:none}
 })();
 </script>
 </head>
-<body><div id="adm004-stage-banner" role="status" style="position:fixed;right:12px;bottom:12px;z-index:2147483647;background:#451c16;color:#fff4d1;border:2px solid #e8bb65;border-radius:8px;padding:9px 13px;font:bold 12px/1.4 system-ui;box-shadow:0 3px 15px #000b;pointer-events:none">ADM-004 · TESTE ISOLADO<br>Não é a biblioteca pública</div>
+<body><div id="adm004-stage-banner" role="status" style="position:fixed;right:12px;bottom:12px;z-index:2147483647;background:#451c16;color:#fff4d1;border:2px solid #e8bb65;border-radius:8px;padding:9px 13px;font:bold 12px/1.4 system-ui;box-shadow:0 3px 15px #000b;pointer-events:none">ADM-004.1 · TESTE ISOLADO<br>Não é a biblioteca pública</div>
   <div class="app-shell">
     <header class="topbar">
       <div class="brand"><span class="brand-symbol" aria-hidden="true">▣</span><span><strong>Biblioteca Lúdica II</strong><small>Pixel nativo, atendente e editor · sincronização privada v0.5.19</small></span></div>
@@ -3933,9 +3933,30 @@ async function sha(blob){const data=await crypto.subtle.digest('SHA-256',await b
 function stable(value){if(Array.isArray(value))return value.map(stable);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(k=>value[k]!==undefined).map(k=>[k,stable(value[k])]));return value;}
 function adminMetadata(meta){if(!meta||typeof meta!=='object')throw Error('Metadados bibliográficos inválidos.');
  const out={};for(const key of ADMIN_FIELDS)if(Object.prototype.hasOwnProperty.call(meta,key))out[key]=meta[key];return out;}
-function stateProjection(m){if(!m?.layout||!Array.isArray(m.books))throw Error('Estado administrativo incompleto.');
- return stable({format:ADMIN_V2_FORMAT,layout:m.layout,books:m.books.map(x=>({metadata:adminMetadata(x.metadata),size:x.size,sha256:x.sha256})).sort((a,b)=>String(a.metadata.id).localeCompare(String(b.metadata.id)))});}
-async function fingerprint(manifest){return sha(new Blob([JSON.stringify(stateProjection(manifest))]));}
+// Canonicalização de exportação do editor: o importador completa campos
+// implícitos (functional=true e interação padrão=both). Sem normalização,
+// importar a própria planta altera o hash sem alterar visualmente o ambiente.
+function canonicalLayout(layout){
+ if(!layout||typeof layout!=='object')throw Error('Planta administrativa inválida.');
+ const result={...layout};
+ const modes={...(layout.interactionModes||{})};
+ const rooms={};
+ for(const [roomId,objects] of Object.entries(layout.rooms||{})){
+  if(!Array.isArray(objects))throw Error('Objetos inválidos em '+roomId);
+  rooms[roomId]=objects.map(original=>{
+   const obj={...original};
+   if(obj.kind==='shelf'&&obj.functional===undefined)obj.functional=true;
+   if(['shelf','table','counter'].includes(obj.kind)&&typeof obj.id==='string'&&!Object.prototype.hasOwnProperty.call(modes,obj.id))modes[obj.id]='both';
+   return obj;
+  });
+ }
+ result.rooms=rooms;
+ result.interactionModes=modes;
+ return result;
+}
+function stateProjection(m,normalize=true){if(!m?.layout||!Array.isArray(m.books))throw Error('Estado administrativo incompleto.');
+ return stable({format:ADMIN_V2_FORMAT,layout:normalize?canonicalLayout(m.layout):m.layout,books:m.books.map(x=>({metadata:adminMetadata(x.metadata),size:x.size,sha256:x.sha256})).sort((a,b)=>String(a.metadata.id).localeCompare(String(b.metadata.id)))});}
+async function fingerprint(manifest,normalize=true){return sha(new Blob([JSON.stringify(stateProjection(manifest,normalize))]));}
 function cloudManifest(m){return {...m,local:{},settings:[],books:m.books.map(b=>({...b,metadata:adminMetadata(b.metadata)}))};}
 // Fingerprints frequentes não recomprimem ZIP nem leem novamente os EPUBs.
 // Quando a Administração altera livros, markDirty invalida o cache de hashes.
@@ -4102,7 +4123,14 @@ async function restoreRemote(automatic=false,verifiedClean=false){if(!ready())th
  if(!automatic&&!confirm('Restaurar a revisão mais recente do Google Drive?\n\nA planta e todo o catálogo locais serão substituídos. Exporte um backup ZIP antes de continuar.'))return;
  const source=await remotePayload(targetId);
  const expected=await fingerprint(source.backup);
- if(source.schema===3&&source.stateHash!==expected)throw Error('Assinatura administrativa remota inválida; dados locais preservados.');
+ if(source.schema===3&&source.stateHash!==expected){
+  // Compatibilidade com revisões gravadas antes da normalização do layout.
+  // Aceitamos somente se a assinatura legada corresponder exatamente ao
+  // conteúdo recebido; nunca dispensamos a verificação criptográfica.
+  const oldHash=await fingerprint(source.backup,false);
+  if(source.stateHash!==oldHash)throw Error('Assinatura administrativa remota inválida; dados locais preservados.');
+  log('Revisão ADM-004 antiga verificada; normalizando a planta durante a restauração.');
+ }
  const incoming=cloudManifest(source.backup);
  const z=new JSZip();z.file('manifest.json',JSON.stringify(incoming));
  const files=await listAppFiles(),assets=new Map(files.filter(f=>validAsset(f.name)).map(f=>[f.name,f.id]));
@@ -4138,7 +4166,13 @@ async function restoreRemote(automatic=false,verifiedClean=false){if(!ready())th
   }:undefined,
   afterApply:async()=>{
    fileDigests.clear();const actual=await fastLocal();
-   if(actual.hash!==h)throw Error('Estado restaurado difere da assinatura administrativa esperada; revertendo a restauração.');
+   if(actual.hash!==h){
+    const wanted=stateProjection(source.backup),got=stateProjection(actual.manifest);
+    const difference=[];
+    if(JSON.stringify(wanted.layout)!==JSON.stringify(got.layout))difference.push('planta');
+    if(JSON.stringify(wanted.books)!==JSON.stringify(got.books))difference.push('catálogo');
+    throw Error('Estado restaurado difere da assinatura administrativa esperada ('+(difference.join(' e ')||'integridade')+'); revertendo a restauração.');
+   }
   },
   onCommitted:()=>{setBase(targetId);setHash(h);adminClean='limpo';setDirty(false);conflict=false;needsInitialReview=false;}});
  if(applied===false)log('Restauração cancelada. Nenhum dado alterado.');
