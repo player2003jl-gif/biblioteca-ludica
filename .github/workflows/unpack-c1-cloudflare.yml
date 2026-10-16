@@ -1,0 +1,60 @@
+name: Validar prototipo Cloudflare C1 (sem deploy)
+on:
+  push:
+    branches: [infra-c1-cloudflare-20261016]
+    paths:
+      - '.github/workflows/unpack-c1-cloudflare.yml'
+      - '.c1-transfer/payload.xz.b64'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-and-test:
+    if: github.ref == 'refs/heads/infra-c1-cloudflare-20261016'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Verificar integridade e reconstruir arquivos C1
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64,lzma,hashlib,io,tarfile,pathlib
+          b64=pathlib.Path('.c1-transfer/payload.xz.b64').read_text().strip()
+          package=base64.b64decode(b64,validate=True)
+          expected='6cd9988975c18646cc28319cecd411a5867f2f8e3b7964b9ddb0e2553db0f629'
+          assert hashlib.sha256(package).hexdigest()==expected, 'Pacote foi alterado'
+          data=lzma.decompress(package)
+          with tarfile.open(fileobj=io.BytesIO(data),mode='r:') as tar:
+            members=tar.getmembers()
+            allowed={
+              '.env.example','.gitignore','GUIA_DE_INICIO.md','README.md',
+              'migrations/0001_create_c1_demo.sql','package.json','src/index.js',
+              'test/c1.test.js','wrangler.jsonc'
+            }
+            names={m.name.removeprefix('backend/c1-cloudflare/') for m in members}
+            assert names==allowed, 'Arquivos inesperados: '+repr(names^allowed)
+            for m in members:
+              assert m.isfile() and m.name.startswith('backend/c1-cloudflare/'), 'Arquivo invalido'
+              output=pathlib.Path(m.name)
+              assert '..' not in output.parts and not output.is_absolute(), 'Caminho inseguro'
+              content=tar.extractfile(m).read()
+              output.parent.mkdir(parents=True,exist_ok=True)
+              output.write_bytes(content)
+          print('Arquivos C1 verificados e extraídos')
+          PY
+      - name: Validar sintaxe e testes do prototipo
+        working-directory: backend/c1-cloudflare
+        run: |
+          node --check src/index.js
+          npm test
+      - name: Guardar codigo testado na ramificacao experimental
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/c1-cloudflare/
+          if ! git diff --staged --quiet; then
+            git commit -m "infra C1: adicionar Worker D1 R2 e testes locais"
+            git push origin HEAD:infra-c1-cloudflare-20261016
+          fi
