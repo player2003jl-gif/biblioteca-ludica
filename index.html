@@ -279,7 +279,7 @@ html:fullscreen .app-footer {display:none}
         <p id="admin-backup-status" role="status" aria-live="polite">Pronto para exportar um backup privado.</p>
       </section>
       <section class="admin-backup-section" aria-label="Sincronização privada do Google Drive">
-        <h3>Sincronização administrativa · ADM-003 (experimental)</h3>
+        <h3>Sincronização administrativa · ADM-004 (experimental)</h3>
         <p>Esta área salva cópias privadas no Google Drive da conta autorizada. Não publica livros nem layouts no GitHub; visitantes não recebem acesso à sua conta. Ao conectar, um navegador novo pode recuperar o Drive automaticamente; mudanças locais nunca serão substituídas sem confirmação. Alterações feitas offline ficam em fila local. A sincronização funciona com a página aberta e uma autorização Google válida.</p>
         <label for="adm002-client-id">Client ID OAuth do Google Cloud (tipo Aplicativo Web; nunca insira Client Secret ou senha)</label>
         <input type="text" id="adm002-client-id" autocomplete="off" spellcheck="false" placeholder="000000000000-xxxxxxxx.apps.googleusercontent.com" />
@@ -293,7 +293,8 @@ html:fullscreen .app-footer {display:none}
         </div>
         <label class="editor-check"><input type="checkbox" id="adm002-auto" checked /> Sincronizar automaticamente após salvar alterações</label>
         <p id="adm002-status" role="status" aria-live="polite">Aguardando conexão do administrador. Configure o OAuth antes da primeira utilização.</p>
-        <p id="adm003-state" role="status" aria-live="polite">Recuperação automática: apenas para navegadores sem personalizações prévias. Divergências exigem confirmação.</p>
+        <p id="adm003-state" role="status" aria-live="polite">Recuperação automática: aplica revisões descendentes quando não há modificações administrativas locais.</p>
+        <p id="adm004-diagnostic" style="font-size:11px;opacity:.75" aria-label="Diagnóstico local de sincronização">Diagnóstico local aguardando autenticação.</p>
         <p class="editor-help">A publicação no GitHub continua independente. Revisões de planta e metadados são armazenadas separadamente; cada EPUB/PDF é enviado apenas uma vez por SHA-256 ao appDataFolder privado e consome sua cota do Drive. Nenhuma cópia anterior é apagada automaticamente. Se outro dispositivo tiver novidades, confirme qual versão preservar. O backup ZIP local da ADM-001 continua disponível.</p>
       </section>
       <p id="editor-message" role="status" aria-live="polite">Edição local: salve e use backup ADM-001 ou sincronização ADM-002.</p>
@@ -3695,7 +3696,7 @@ function localSnapshot(){const result={};for(let i=0;i<localStorage.length;i++){
  const key=localStorage.key(i);
  // As chaves da sincronização não são parte do acervo nem da planta;
  // incluí-las na assinatura cria falsos conflitos ao alterar apenas o token/base.
- if(/^(BL2_|bl2-)/.test(key)&&!/^BL2_ADM00[23]_/.test(key))result[key]=localStorage.getItem(key);
+ if(/^(BL2_|bl2-)/.test(key)&&!/^BL2_ADM00[234]_/.test(key))result[key]=localStorage.getItem(key);
 }return result;}
 async function sha(blob){const bin=await blob.arrayBuffer();const digest=await crypto.subtle.digest('SHA-256',bin);return Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('');}
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
@@ -3781,18 +3782,32 @@ async function restoreArchive(file, options={}){
   if(typeof options.beforeCommit==='function')await options.beforeCommit();
   // Layout gravado antes do catálogo; o último passo é recarregar a aplicação.
   localStorage.setItem(LAYOUT_KEY,JSON.stringify(manifest.layout));
-  for(const [key,value] of Object.entries(manifest.local))if(key!==LAYOUT_KEY&&!/^BL2_ADM00[23]_/.test(key))localStorage.setItem(key,value);
-  await writeCatalog(books,manifest.settings);
+  for(const [key,value] of Object.entries(manifest.local))if(key!==LAYOUT_KEY&&!/^BL2_ADM00[234]_/.test(key))localStorage.setItem(key,value);
+  // ADM-004: a nuvem restaura apenas a biblioteca administrativa; notas e
+  // preferências deste leitor continuam locais. Backups ZIP manuais seguem integrais.
+  const personalFields=['favorite','notes','progress','bookmarks','readerSettings'];
+  const oldBooks=new Map(before.books.map(b=>[b.id,b]));
+  const restoredBooks=options.preservePersonal===true?books.map(b=>{
+   const old=oldBooks.get(b.id);if(!old)return b;
+   const copy={...b};for(const key of personalFields)if(Object.prototype.hasOwnProperty.call(old,key))copy[key]=old[key];
+   return copy;
+  }):books;
+  await writeCatalog(restoredBooks,options.preservePersonal===true?before.settings:manifest.settings);
   editor.applyLayout(manifest.layout);
+  // Se a integridade final falhar, a transação é revertida antes do reload.
+  if(typeof options.afterApply==='function')await options.afterApply();
   if(window.__BL2_DRIVE_SYNC__?.state?.connected && window.__BL2_DRIVE_SYNC__?.state?.headId) localStorage.setItem('BL2_ADM002_base_snapshot',window.__BL2_DRIVE_SYNC__.state.headId);
+  // Em sincronizações automáticas, atualizar o catálogo em memória sem reload:
+  // recarregar encerraria a sessão OAuth e interromperia o polling subsequente.
+  if(options.noReload && window.LibraryCatalog?.refresh)await window.LibraryCatalog.refresh();
   if(options.onCommitted)options.onCommitted();
-  say('Restauração concluída. Recarregando para atualizar catálogo e estantes.');
-  location.reload();
+  if(options.noReload)say('Revisão administrativa recebida; catálogo atualizado sem encerrar a conexão Google.');
+  else{say('Restauração concluída. Recarregando catálogo e estantes.');location.reload();}
   return true;
  }catch(error){
   // Reverte as alterações do armazenamento local. Se a transação tiver sido concluída, reverte o catálogo também.
   try{if(currentLayoutRaw===null)localStorage.removeItem(LAYOUT_KEY);else localStorage.setItem(LAYOUT_KEY,currentLayoutRaw);
-   for(const key of Object.keys(manifest.local))if(key!==LAYOUT_KEY&&!/^BL2_ADM00[23]_/.test(key) && !(key in previous))localStorage.removeItem(key);
+   for(const key of Object.keys(manifest.local))if(key!==LAYOUT_KEY&&!/^BL2_ADM00[234]_/.test(key) && !(key in previous))localStorage.removeItem(key);
    for(const [key,value] of Object.entries(previous))localStorage.setItem(key,value);
    await writeCatalog(before.books,before.settings);editor.applyLayout(oldLayout);
   }catch(rollbackError){throw Error('Restauração falhou e a recuperação automática não foi confirmada: '+error.message+'; '+rollbackError.message);}
@@ -3817,7 +3832,7 @@ window.__BL2_ADMIN_BACKUP__={exportArchive:archiveData,readArchive:unpack,restor
 </script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
-/* Biblioteca Lúdica II — ADM-003.1 v0.5.19.2 experimental.
+/* Biblioteca Lúdica II — ADM-004 v0.5.19.3 experimental.
  * Recuperação após autenticação, detecção de forks, proteção de dados offline,
  * envio somente do estado administrativo, com EPUBs deduplicados por SHA-256.
  * Sem credenciais armazenadas. Não publica dados privados no GitHub.
@@ -3827,19 +3842,23 @@ window.__BL2_ADMIN_BACKUP__={exportArchive:archiveData,readArchive:unpack,restor
 const PREFIX='BL2_ADM002_BACKUP_', ASSET_PREFIX='BL2_ADM002_ASSET_';
 const CLIENT_KEY='BL2_ADM002_client_id', BASE_KEY='BL2_ADM002_base_snapshot';
 const HASH_KEY='BL2_ADM003_synced_hash', DIRTY_KEY='BL2_ADM003_unsynced', QUEUE_KEY='BL2_ADM003_queue_at';
+const ADMIN_V2_BASE_ID='BL2_ADM004_base_id', ADMIN_V2_BASE_HASH='BL2_ADM004_base_hash', ADMIN_V2_FORMAT='admin-v2';
+const ADMIN_FIELDS=['id','title','author','kind','shelf','shelfId','bibliographic','originalName','importedAt'];
+const PERSONAL_FIELDS=['favorite','notes','progress','bookmarks','readerSettings'];
 const API='https://www.googleapis.com/drive/v3/files';
 const UPLOAD='https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,createdTime,size';
 const SCOPE='https://www.googleapis.com/auth/drive.appdata';
 const $=id=>document.getElementById(id);
 const field=$('adm002-client-id'),connect=$('adm002-connect'),fetchButton=$('adm002-restore'),saveButton=$('adm002-save'),
  keepButton=$('adm002-overwrite'),disconnect=$('adm002-disconnect'),info=$('adm002-status'),autoBox=$('adm002-auto'),
- reconcile=$('adm003-reconcile'),syncState=$('adm003-state');
+ reconcile=$('adm003-reconcile'),syncState=$('adm003-state'),diagnosticPanel=$('adm004-diagnostic');
 if(!field||!connect||!info||!autoBox)return;
 let accessToken='',tokenUntil=0,baseId=localStorage.getItem(BASE_KEY)||'',head=null,busy=false,
  dirty=localStorage.getItem(DIRTY_KEY)==='1',autoEnabled=autoBox.checked,client=null,pending=null,connected=false,
- stateHash=localStorage.getItem(HASH_KEY)||'',inflightDirty=false,conflict=false,needsInitialReview=false,resolveForkParents=[],pollTimer=null,changeEpoch=0;
+ stateHash=localStorage.getItem(HASH_KEY)||'',inflightDirty=false,conflict=false,needsInitialReview=false,resolveForkParents=[],pollTimer=null,changeEpoch=0,
+ fileDigests=new Map(),adminClean='desconhecido',canonicalBaseHash=(localStorage.getItem(ADMIN_V2_BASE_ID)===baseId?localStorage.getItem(ADMIN_V2_BASE_HASH):'')||'';
 const log=(message,error=false)=>{info.textContent=message;info.style.color=error?'#f4abab':'#e4c68c';
- if(syncState)syncState.textContent=error?'Atenção: ação necessária':message;};
+ if(syncState)syncState.textContent=error?'Atenção: ação necessária':message;diagnostic(message);};
 const ready=()=>!!accessToken&&connected&&Date.now()<tokenUntil;
 const isCurrent=()=>ready()&&!conflict&&!needsInitialReview&&!!baseId&&baseId===(head?.id||'');
 const live=()=>isCurrent()&&autoEnabled;
@@ -3847,16 +3866,16 @@ function controls(){const yes=ready();connect.disabled=busy;disconnect.disabled=
  fetchButton.disabled=busy||!yes||!head;saveButton.disabled=busy||!yes||conflict||needsInitialReview;
  keepButton.disabled=busy||!yes||!head||!conflict;
  if(reconcile)reconcile.disabled=busy||!yes;autoBox.disabled=busy;}
-function setBase(id){baseId=id||'';if(id)localStorage.setItem(BASE_KEY,id);else localStorage.removeItem(BASE_KEY);}
-function setHash(hash){stateHash=hash||'';if(hash)localStorage.setItem(HASH_KEY,hash);else localStorage.removeItem(HASH_KEY);}
-function setDirty(yes){dirty=!!yes;if(yes){localStorage.setItem(DIRTY_KEY,'1');localStorage.setItem(QUEUE_KEY,new Date().toISOString());}
+function setBase(id){baseId=id||'';if(id)localStorage.setItem(BASE_KEY,id);else localStorage.removeItem(BASE_KEY);canonicalBaseHash='';localStorage.removeItem(ADMIN_V2_BASE_ID);localStorage.removeItem(ADMIN_V2_BASE_HASH);}
+function setHash(hash){stateHash=hash||'';if(hash){localStorage.setItem(HASH_KEY,hash);if(baseId){canonicalBaseHash=hash;localStorage.setItem(ADMIN_V2_BASE_ID,baseId);localStorage.setItem(ADMIN_V2_BASE_HASH,hash);}}else{localStorage.removeItem(HASH_KEY);canonicalBaseHash='';localStorage.removeItem(ADMIN_V2_BASE_ID);localStorage.removeItem(ADMIN_V2_BASE_HASH);}}
+function setDirty(yes){dirty=!!yes;if(yes)adminClean='alterado';if(yes){localStorage.setItem(DIRTY_KEY,'1');localStorage.setItem(QUEUE_KEY,new Date().toISOString());}
  else{localStorage.removeItem(DIRTY_KEY);localStorage.removeItem(QUEUE_KEY);}}
 function clientId(){const id=field.value.trim();if(!/^\d+-[a-z0-9-]+\.apps\.googleusercontent\.com$/.test(id))throw Error('Informe um Client ID OAuth para Aplicativo Web.');return id;}
 function clearPending(){if(pending)clearTimeout(pending);pending=null;}
 function stopPoll(){if(pollTimer)clearTimeout(pollTimer);pollTimer=null;}
 function schedulePoll(){stopPoll();if(!ready())return;pollTimer=setTimeout(()=>{pollTimer=null;void pollRemote().finally(()=>schedulePoll());},60000);pollTimer?.unref?.();}
 function later(ms=10000){clearPending();if(!live())return;pending=setTimeout(()=>{pending=null;void syncNow(false);},ms);}
-function markDirty(){changeEpoch++;setDirty(true);if(busy){inflightDirty=true;return;}
+function markDirty(){changeEpoch++;fileDigests.clear();setDirty(true);if(busy){inflightDirty=true;return;}
  if(live()){log('Alteração local protegida. Envio agendado para o Google Drive.');later();}
  else log('Alteração salva neste navegador. Aguarda autenticação, conexão ou resolução de divergência.',true);
 }
@@ -3882,30 +3901,64 @@ async function listSnapshots(){return (await listAppFiles()).filter(x=>validName
  String(b.createdTime||'').localeCompare(String(a.createdTime||''))||String(b.name).localeCompare(String(a.name)));}
 async function remoteHead(){return (await listSnapshots())[0]||null;}
 async function remotePayload(id){const p=await (await api(API+'/'+encodeURIComponent(id)+'?alt=media')).json();
- if(p?.format!=='biblioteca-ludica-ii-cloud-snapshot'||![1,2].includes(p.schema)||!p.backup||!Array.isArray(p.backup.books))throw Error('Snapshot remoto inválido.');
+ if(p?.format!=='biblioteca-ludica-ii-cloud-snapshot'||![1,2,3].includes(p.schema)||!p.backup||!Array.isArray(p.backup.books))throw Error('Snapshot remoto inválido.');
  return p;}
 async function sha(blob){const data=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());return Array.from(new Uint8Array(data),n=>n.toString(16).padStart(2,'0')).join('');}
-// Comparação determinística dos dados sem timestamp/URL do browser; não depende de tamanho dos arquivos.
-function stateProjection(m){return {layout:m.layout,local:Object.fromEntries(Object.entries(m.local||{})
- .filter(([key])=>!/^BL2_ADM00[23]_/.test(key)).sort(([a],[b])=>a.localeCompare(b))),
- settings:[...(m.settings||[])].sort((a,b)=>String(a.key).localeCompare(String(b.key))),
- books:[...(m.books||[])].map(x=>({metadata:x.metadata,size:x.size,sha256:x.sha256,mediaType:x.mediaType})).sort((a,b)=>String(a.metadata.id).localeCompare(String(b.metadata.id)))};}
+// Estado administrativo canônico V2: somente campos aprovados de planta e acervo.
+// Leitura pessoal, câmera, empréstimo e chaves legadas não entram no hash.
+function stable(value){if(Array.isArray(value))return value.map(stable);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().filter(k=>value[k]!==undefined).map(k=>[k,stable(value[k])]));return value;}
+function adminMetadata(meta){if(!meta||typeof meta!=='object')throw Error('Metadados bibliográficos inválidos.');
+ const out={};for(const key of ADMIN_FIELDS)if(Object.prototype.hasOwnProperty.call(meta,key))out[key]=meta[key];return out;}
+function stateProjection(m){if(!m?.layout||!Array.isArray(m.books))throw Error('Estado administrativo incompleto.');
+ return stable({format:ADMIN_V2_FORMAT,layout:m.layout,books:m.books.map(x=>({metadata:adminMetadata(x.metadata),size:x.size,sha256:x.sha256})).sort((a,b)=>String(a.metadata.id).localeCompare(String(b.metadata.id)))});}
 async function fingerprint(manifest){return sha(new Blob([JSON.stringify(stateProjection(manifest))]));}
+function cloudManifest(m){return {...m,local:{},settings:[],books:m.books.map(b=>({...b,metadata:adminMetadata(b.metadata)}))};}
+// Fingerprints frequentes não recomprimem ZIP nem leem novamente os EPUBs.
+// Quando a Administração altera livros, markDirty invalida o cache de hashes.
+async function fastLocal(){const module=window.__BL2_ADMIN_BACKUP__;
+ if(!module?.inspectLocal)throw Error('Dados ADM-001 indisponíveis.');
+ const contents=await module.inspectLocal();const layout=window.__BL2_EDITOR__?.bundle?.();
+ if(!layout)throw Error('Editor indisponível.');
+ const books=[];
+ for(const b of contents.books){
+  if(!(b.file instanceof Blob))throw Error('Arquivo ausente: '+(b.id||'livro sem ID'));
+  const signature=JSON.stringify([b.id,b.importedAt,b.originalName,b.file.size,b.file.type,b.kind]);
+  let cache=fileDigests.get(b.id);
+  if(!cache||cache.signature!==signature){cache={signature,digest:await sha(b.file)};fileDigests.set(b.id,cache);}
+  books.push({metadata:adminMetadata(b),size:b.file.size,sha256:cache.digest});
+ }
+ const manifest={layout,books};return {manifest,hash:await fingerprint(manifest)};
+}
 async function localArchive(){const module=window.__BL2_ADMIN_BACKUP__;
  if(!module?.exportArchive)throw Error('Backup ADM-001 indisponível.');
  const archive=await module.exportArchive(),z=await JSZip.loadAsync(new Uint8Array(await archive.blob.arrayBuffer()),{checkCRC32:true});
- const manifest=JSON.parse(await z.file('manifest.json').async('string'));
+ const original=JSON.parse(await z.file('manifest.json').async('string'));
+ const manifest=cloudManifest(original);
+ for(const b of manifest.books){const originalBook=original.books.find(x=>x.metadata?.id===b.metadata?.id);
+  if(originalBook)fileDigests.set(b.metadata.id,{signature:JSON.stringify([b.metadata.id,b.metadata.importedAt,b.metadata.originalName,b.size,b.mediaType,b.metadata.kind]),digest:b.sha256});
+ }
  return {...archive,zip:z,manifest,hash:await fingerprint(manifest)};}
-// Só é seguro receber revisões remotas automaticamente quando este navegador
-// possui uma revisão-base conhecida e não modificada. A ausência do sinal dirty
-// NÃO basta: comparações de assinatura detectam alterações feitas sem eventos.
-async function verifiedCleanLocal(){
- // Versões anteriores sinalizavam "dirty" até para uma simples revisão remota.
- // A assinatura verificável, não o sinal de conflito legado, decide se houve
- // alteração efetiva da planta, dos metadados ou dos arquivos bibliográficos.
- if(!baseId||!stateHash||inflightDirty)return false;
- return (await localArchive()).hash===stateHash;
+async function ensureBaseHash(){if(!baseId)return '';
+ if(canonicalBaseHash)return canonicalBaseHash;
+ // Migração: não confiar no hash antigo, potencialmente contaminado por leitura.
+ // Conferir o conteúdo da própria revisão-base preservada no Drive.
+ const old=await remotePayload(baseId),hash=await fingerprint(old.backup);
+ canonicalBaseHash=hash;localStorage.setItem(ADMIN_V2_BASE_ID,baseId);localStorage.setItem(ADMIN_V2_BASE_HASH,hash);
+ return hash;
 }
+async function verifiedCleanLocal(){if(!baseId||inflightDirty)return false;
+ const clean=(await fastLocal()).hash===(await ensureBaseHash());adminClean=clean?'limpo':'alterado';diagnostic('comparação de estado');return clean;}
+async function remoteDescends(id,ancestor){if(!ancestor||!id)return false;
+ const seen=new Set();let current=id;
+ for(let depth=0;depth<150&&current&&!seen.has(current);depth++){
+  if(current===ancestor)return true;
+  seen.add(current);const p=await remotePayload(current);
+  current=typeof p.parentSnapshotId==='string'?p.parentSnapshotId:'';
+ }
+ return false;}
+function diagnostic(what){const short=x=>x?String(x).slice(0,8):'nenhum';
+ if(diagnosticPanel)diagnosticPanel.textContent='Diagnóstico ADM-004 · OAuth '+(ready()?'conectado':'desconectado')+' · esquema '+ADMIN_V2_FORMAT+' · base '+short(baseId)+' · Drive '+short(head?.id)+' · admin '+adminClean+' · editor '+(editingNow()?'aberto':'fechado')+' · '+what;} 
+
 function editingNow(){return !!window.__BL2_EDITOR__?.isEditing;}
 // Um navegador recém-instalado não possui planta administrativa nem livros importados.
 // Estado preexistente, mesmo desconhecido, jamais é substituído sem confirmação explícita.
@@ -3914,7 +3967,7 @@ async function pristineLocal(){if(localStorage.getItem('BL2_layout_044_TWO_ROOMS
  const module=window.__BL2_ADMIN_BACKUP__;
  if(!module?.inspectLocal) return false;
  const s=await module.inspectLocal();
- return !s.books.length&&!s.settings.length&&Object.keys(s.local).every(k=>
+ return !s.books.length&&Object.keys(s.local).every(k=>
   k==='bl2-camera-zoom'||k==='bl2-catalog-bundle-seeded');}
 async function uploadBlob(blob,name,mime='application/json'){
  const r=await api(UPLOAD,{method:'POST',headers:{'Content-Type':'application/json; charset=UTF-8','X-Upload-Content-Type':mime,'X-Upload-Content-Length':String(blob.size)},
@@ -3940,7 +3993,7 @@ async function inspectForks(snaps){
  const recent=snaps.slice(0,20);const parentMap=new Map(),resolved=new Set();
  for(const file of recent){
   const s=await remotePayload(file.id);
-  if(s.schema!==2)continue;
+  if(s.schema<2)continue;
   for(const id of s.resolvedForkParents||[])if(typeof id==='string')resolved.add(id);
   if(s.parentSnapshotId){const siblings=parentMap.get(s.parentSnapshotId)||[];siblings.push(file.id);parentMap.set(s.parentSnapshotId,siblings);}
  }
@@ -3953,22 +4006,18 @@ async function connectAction(){await signIn();conflict=false;needsInitialReview=
  if(!head){if(await pristineLocal()){needsInitialReview=false;setBase('');setHash('');
   log('Drive conectado, sem cópia remota. Confirme Enviar estado atual para criar a primeira revisão.');}
   else{needsInitialReview=true;log('Drive ainda não possui backups; dados locais existentes. Confirme Enviar estado atual.',true);}return;}
- const local=await localArchive();
+ const local=await fastLocal();diagnostic('reconectar');
  if(baseId===head.id){
-  // Migração conservadora da v0.5.18: sem assinatura local anterior, não presumimos igualdade.
-  if(!stateHash){needsInitialReview=true;log('Dados anteriores ao ADM-003: é necessário revisar a primeira reconciliação, para não perder alterações.',true);return;}
-  if(local.hash!==stateHash){setDirty(true);log('Diferença local detectada; aguardando envio seguro da revisão administrativa.',true);if(autoEnabled)later();}
-  else{setDirty(false);log('Drive conectado. Estado local íntegro e sincronizado.');}
+  const expected=await ensureBaseHash();
+  if(local.hash!==expected){adminClean='alterado';setDirty(true);log('Alterações administrativas locais pendentes. Revisão-base preservada.',true);if(autoEnabled)later();}
+  else{adminClean='limpo';setHash(expected);setDirty(false);log('Drive conectado. Estado administrativo V2 íntegro e sincronizado.');}
   return;
  }
- // Regressão ADM-003: uma revisão remota MAIS RECENTE não é conflito
- // quando o navegador mantém exatamente a última revisão-base conhecida.
- // Conservar a proteção conservadora para alterações locais/offline reais.
- if(await verifiedCleanLocal()){
+ if(baseId&&await remoteDescends(head.id,baseId)&&await verifiedCleanLocal()){
   if(editingNow()){
-   log('Nova revisão no Drive. Saia de Editar ambiente para recebê-la automaticamente sem interromper uma edição.');return;
+   log('Revisão remota disponível. Saia de Editar ambiente para recebê-la automaticamente.');return;
   }
-  log('Nova revisão encontrada: recebendo automaticamente no navegador sem alterações...');
+  log('Nova revisão administrativa encontrada: recebendo automaticamente...');
   await restoreRemote(true,true);return;
  }
  // Um navegador inteiramente novo pode receber o Drive automaticamente.
@@ -3989,8 +4038,10 @@ async function syncNow(manual=false){
   log('Conferindo versões recentes do Google Drive...');const check=await inspectRemote();head=check.latest;
   if(check.forks&&!check.forkParents.every(p=>resolveForkParents.includes(p))){conflict=true;throw Error('Revisões concorrentes no Drive. Nenhum dado local foi substituído.');}
   if((head?.id||'')!==baseId){conflict=true;throw Error('Outro computador publicou uma revisão. Sincronização suspensa para preservar os dois trabalhos.');}
+  const quick=await fastLocal();
+  if(!manual&&baseId&&quick.hash===(await ensureBaseHash())){setHash(quick.hash);setDirty(false);log('Tudo sincronizado; nenhuma alteração administrativa nova.');return;}
   const local=await localArchive();
-  if(!manual&&stateHash===local.hash&&!hadChanges){setDirty(false);log('Tudo sincronizado; nenhuma alteração nova.');return;}
+  if(local.hash!==quick.hash)throw Error('O estado mudou durante a preparação. Tente novamente após salvar.');
   const available=await listAppFiles(),assets=new Set(available.filter(f=>validAsset(f.name)).map(f=>f.name));let sent=0;
   for(const book of local.manifest.books){
    if(!/^[a-f0-9]{64}$/.test(book.sha256)||!['epub','pdf'].includes(book.metadata?.kind))throw Error('Arquivo bibliográfico inválido.');
@@ -4002,7 +4053,7 @@ async function syncNow(manual=false){
   }
   const current=await inspectRemote();head=current.latest;
   if((current.forks&&!current.forkParents.every(p=>resolveForkParents.includes(p)))||(head?.id||'')!==baseId){conflict=true;throw Error('A nuvem foi modificada durante o envio. A cópia local permanece segura.');}
-  const payload={format:'biblioteca-ludica-ii-cloud-snapshot',schema:2,createdAt:new Date().toISOString(),
+  const payload={format:'biblioteca-ludica-ii-cloud-snapshot',schema:3,hashScheme:ADMIN_V2_FORMAT,createdAt:new Date().toISOString(),
    parentSnapshotId:baseId||null,resolvedForkParents:resolveForkParents.slice(),stateHash:local.hash,backup:local.manifest};
   const blob=new Blob([JSON.stringify(payload)],{type:'application/json'});
   const name=PREFIX+new Date().toISOString().replace(/[:.]/g,'-')+'_'+(await sha(blob)).slice(0,8)+'.json';
@@ -4026,9 +4077,12 @@ async function restoreRemote(automatic=false,verifiedClean=false){if(!ready())th
  }else if(automatic&&!(await pristineLocal()))throw Error('Dados locais presentes. A restauração automática foi bloqueada.');
  if(!automatic&&!confirm('Restaurar a revisão mais recente do Google Drive?\n\nA planta e todo o catálogo locais serão substituídos. Exporte um backup ZIP antes de continuar.'))return;
  const source=await remotePayload(targetId);
- const z=new JSZip();z.file('manifest.json',JSON.stringify(source.backup));
+ const expected=await fingerprint(source.backup);
+ if(source.schema===3&&source.stateHash!==expected)throw Error('Assinatura administrativa remota inválida; dados locais preservados.');
+ const incoming=cloudManifest(source.backup);
+ const z=new JSZip();z.file('manifest.json',JSON.stringify(incoming));
  const files=await listAppFiles(),assets=new Map(files.filter(f=>validAsset(f.name)).map(f=>[f.name,f.id]));
- for(const b of source.backup.books){
+ for(const b of incoming.books){
   if(!/^[a-f0-9]{64}$/.test(b.sha256)||!['epub','pdf'].includes(b.metadata?.kind)||!/^books\/\d{6}\.(epub|pdf)$/.test(b.path))throw Error('Livro inválido no manifesto remoto.');
   const name=ASSET_PREFIX+b.sha256+'.'+b.metadata.kind,id=assets.get(name);
   if(!id)throw Error('Arquivo ausente no Drive: '+name);
@@ -4042,15 +4096,15 @@ async function restoreRemote(automatic=false,verifiedClean=false){if(!ready())th
  // A gravação da base só ocorre dentro do commit local ADM-001, imediatamente antes de recarregar.
  // Recalcular com a projeção canônica: revisões antigas podem conter
  // chaves técnicas ADM-003 que não representam alterações do usuário.
- const h=await fingerprint(source.backup);
- const applied=await window.__BL2_ADMIN_BACKUP__.restoreArchive(archive,{silentConfirm:automatic,
+ const h=expected;
+ const applied=await window.__BL2_ADMIN_BACKUP__.restoreArchive(archive,{silentConfirm:automatic,preservePersonal:true,noReload:automatic,
   beforeCommit:automatic?async()=>{
    // Não substituir edições realizadas enquanto EPUBs/PDFs eram baixados.
    // A checagem acontece imediatamente antes da primeira gravação local.
    if(changeEpoch!==epoch||inflightDirty||editingNow())
     throw Error('Alterações locais ou edição em andamento durante a transferência. Nada foi substituído.');
    if(verifiedClean){
-    if(baseId!==priorBase||stateHash!==priorHash||(await localArchive()).hash!==priorHash)
+    if(baseId!==priorBase||stateHash!==priorHash||!(await verifiedCleanLocal()))
      throw Error('O estado local mudou durante a recuperação. Nada foi substituído.');
    }else if(!(await pristineLocal()))
     throw Error('Dados locais apareceram durante a recuperação. Nada foi substituído.');
@@ -4058,7 +4112,11 @@ async function restoreRemote(automatic=false,verifiedClean=false){if(!ready())th
    if(finalAudit.forks||finalAudit.latest?.id!==targetId)
     throw Error('O Drive mudou durante a recuperação. Nenhum dado local foi substituído.');
   }:undefined,
-  onCommitted:()=>{setBase(targetId);setHash(h);setDirty(false);conflict=false;needsInitialReview=false;}});
+  afterApply:async()=>{
+   fileDigests.clear();const actual=await fastLocal();
+   if(actual.hash!==h)throw Error('Estado restaurado difere da assinatura administrativa esperada; revertendo a restauração.');
+  },
+  onCommitted:()=>{setBase(targetId);setHash(h);adminClean='limpo';setDirty(false);conflict=false;needsInitialReview=false;}});
  if(applied===false)log('Restauração cancelada. Nenhum dado alterado.');
 }
 async function pollRemote(){
@@ -4070,8 +4128,11 @@ async function pollRemote(){
   if(!head||head.id===baseId)return;
   // Uma revisão remota sucessora deve entrar automaticamente quando a base
   // local tem assinatura verificada. Alterações locais continuam protegidas.
+  if(!baseId||!(await remoteDescends(head.id,baseId))){
+   conflict=true;log('A revisão remota não descende da base conhecida. Compare versões antes de restaurar.',true);return;
+  }
   if(!(await verifiedCleanLocal())){
-   conflict=true;setDirty(true);log('Outra revisão chegou do Drive, mas há alterações locais. Consulte as versões antes de substituir.',true);return;
+   conflict=true;setDirty(true);log('Outra revisão chegou do Drive, mas há alterações administrativas locais. Consulte as versões.',true);return;
   }
   if(editingNow()){
    // Edição aberta sem mudanças locais: adiar sem fabricar conflito.
@@ -4093,9 +4154,9 @@ async function reconcileNow(){if(!ready())return;
  if(status.forks){conflict=true;log('Detectadas versões concorrentes. Os backups continuam preservados; use um backup local para reconciliação.',true);return;}
  if(!head){if(needsInitialReview){needsInitialReview=false;setBase('');setTimeout(()=>{void syncNow(true);},0);}else log('Não existem revisões remotas; use Enviar estado atual.');return;}
  if((await pristineLocal())){await restoreRemote(true);return;}
- const local=await localArchive();
- if(baseId===head.id&&stateHash&&stateHash===local.hash){needsInitialReview=false;conflict=false;setDirty(false);log('Estados local e remoto conferidos.');return;}
- if(baseId!==head.id&&await verifiedCleanLocal()){
+ const local=await fastLocal();
+ if(baseId===head.id&&baseId&&local.hash===(await ensureBaseHash())){setHash(local.hash);needsInitialReview=false;conflict=false;setDirty(false);log('Estados administrativos local e remoto conferidos.');return;}
+ if(baseId!==head.id&&baseId&&await remoteDescends(head.id,baseId)&&await verifiedCleanLocal()){
   if(editingNow()){log('Revisão remota mais recente. Saia de Editar ambiente para recebê-la automaticamente.');return;}
   log('Revisão remota mais recente e estado local intacto: atualizando automaticamente...');
   await restoreRemote(true,true);return;
@@ -4120,7 +4181,7 @@ window.addEventListener('visibilitychange',()=>{if(!document.hidden){if(dirty&&l
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
 field.value=localStorage.getItem(CLIENT_KEY)||'';
 controls();if(dirty)log('Há alterações locais ainda não sincronizadas. Conecte para reconciliar.',true);
-window.__BL2_DRIVE_SYNC__={remoteHead,listSnapshots,validName,validAsset,inspectRemote,restoreRemote,pristineLocal,fingerprint,syncNow,reconcileNow,pollRemote,
+window.__BL2_DRIVE_SYNC__={remoteHead,listSnapshots,validName,validAsset,inspectRemote,restoreRemote,pristineLocal,fingerprint,stateProjection,fastLocal,verifiedCleanLocal,remoteDescends,syncNow,reconcileNow,pollRemote,
  get state(){return {connected:ready(),baseId,headId:head?.id||'',dirty,conflict,needsInitialReview,autoEnabled,stateHash}}};
 })();
 
