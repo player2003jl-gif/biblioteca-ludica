@@ -1,0 +1,37 @@
+name: C3 - gerar preview administrativo Google isolado
+on:
+  push:
+    branches: [preview-c3-admin-20261016]
+    paths: ['.github/workflows/gerar-preview-c3.yml']
+permissions:
+  contents: write
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Criar pagina grafica isolada, sem mexer em producao
+        run: python3 scripts/gerar_preview_cloudflare_c3.py
+      - name: Confirmar integridade dos arquivos principais
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git diff --name-only -- index.html integrity_manifest.json homologacao-adm004/index.html homologacao-cloudflare-c2/index.html)"
+          test -f homologacao-cloudflare-c3/index.html
+          node --check homologacao-cloudflare-c3/cloudflare-c3.js
+      - name: Gravar apenas a pagina C3 na branch de homologacao
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add homologacao-cloudflare-c3/index.html
+          if ! git diff --staged --quiet; then
+            git commit -m "test(c3): criar copia isolada da Biblioteca com login Google"
+            git push origin HEAD:preview-c3-admin-20261016
+          fi
