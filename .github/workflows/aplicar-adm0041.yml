@@ -1,0 +1,51 @@
+name: Aplicar ADM-004.1 em ambiente isolado
+on:
+  push:
+    branches: [fix-adm0041-normalizacao]
+    paths:
+      - '.github/workflows/aplicar-adm0041.yml'
+      - 'tools/adm0041-canonical.patch.xz.b64'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  normalizar:
+    if: github.ref == 'refs/heads/fix-adm0041-normalizacao'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Aplicar correcao e verificar integridade
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64,lzma,hashlib,subprocess
+          html=Path('homologacao-adm004/index.html')
+          base='437b148bc65ab1fe27b851a71096c7b640484304ab1ec984b5ab8b664f2b7356'
+          final='57c19cde667ff7d45c185229cb145149574b08c49902d11319b8f834d69da4e6'
+          actual=hashlib.sha256(html.read_bytes()).hexdigest()
+          if actual!=final:
+            if actual!=base:raise SystemExit('Base inesperada: '+actual)
+            content=Path('tools/adm0041-canonical.patch.xz.b64').read_text().strip()
+            patch=Path('/tmp/adm0041.patch')
+            patch.write_bytes(lzma.decompress(base64.b64decode(content)))
+            subprocess.run(['patch','--batch','--fuzz=0','--no-backup-if-mismatch','-p1','-i',str(patch)],check=True)
+          updated=html.read_bytes()
+          verify=hashlib.sha256(updated).hexdigest()
+          blob=hashlib.sha1(b'blob '+str(len(updated)).encode()+b'\0'+updated).hexdigest()
+          if verify!=final or blob!='d4db2498fc6955e583a74a79f467fd1807a164f0':raise SystemExit('Integridade do preview incorreta')
+          if not html.read_text(encoding='utf-8').count('function canonicalLayout(layout){')==1:raise SystemExit('Correcao nao encontrada')
+          print('Verificado ADM-004.1',verify,blob)
+          PY
+      - name: Registrar HTML corrigido somente no ambiente experimental
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add homologacao-adm004/index.html
+          if ! git diff --staged --quiet; then
+            git commit -m "test: aplicar ADM-004.1 normalizacao do estado administrativo"
+            git push origin HEAD:fix-adm0041-normalizacao
+          fi
