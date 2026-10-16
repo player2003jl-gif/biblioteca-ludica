@@ -1,0 +1,27 @@
+name: BL2 staging HTTPS diagnostic (read only)
+on:
+  push:
+    branches: [homologacao-layout-d1-a-b-20261016]
+    paths: [.github/workflows/bl2-layout-http-probe.yml]
+permissions:
+  contents: read
+jobs:
+  https-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Resolve and query staging without tokens
+        shell: bash
+        run: |
+          set +e
+          url='https://bl2-layout-homologacao-a-b-20261016.chatgptset26.workers.dev/api/v1/layout'
+          echo "DNS:"
+          getent ahosts bl2-layout-homologacao-a-b-20261016.chatgptset26.workers.dev | head -4 || true
+          echo "Curl summary:"
+          curl -sS -L --connect-timeout 8 --max-time 25 -o /tmp/bl2-http-body.txt -w 'http=%{http_code} remote=%{remote_ip} time=%{time_total}s\n' "$url"
+          echo 'Body first 400 chars (public layout endpoint only):'
+          head -c 400 /tmp/bl2-http-body.txt 2>/dev/null || true
+          echo
+          echo 'Host comparison C3:'
+          curl -sS -L --connect-timeout 8 --max-time 25 -o /tmp/bl2-c3-body.txt -w 'http=%{http_code} remote=%{remote_ip} time=%{time_total}s\n' 'https://bl2-c3-admin-verificacao.chatgptset26.workers.dev/api/shelf'
+          echo 'No secrets used.'
