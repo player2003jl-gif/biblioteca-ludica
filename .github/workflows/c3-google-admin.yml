@@ -1,0 +1,78 @@
+name: C3 - implantar autenticacao Google em Worker isolado
+
+on:
+  push:
+    branches: [infra-c3-admin-google-20261016]
+    paths: ['.github/workflows/c3-google-admin.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bl2-c3-google-admin-experimental
+  cancel-in-progress: false
+
+jobs:
+  c3-admin:
+    name: Testar, implantar e verificar autenticacao C3
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend/c1-cloudflare/c3-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar logica JWT, revisoes e acesso
+        run: node --test test/c3.test.mjs
+      - name: Localizar somente o banco D1 de homologacao
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 scripts/configure_d1.py
+      - name: Implantar Worker C3 em workers.dev, separado de C2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.45.0 deploy --config wrangler.jsonc
+      - name: Configurar allowlist do administrador somente se segredo existir
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BL2_ALLOWED_SUB: ${{ secrets.C3_ADMIN_GOOGLE_SUB }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$BL2_ALLOWED_SUB" ]; then
+            echo 'C3_ADMIN_GOOGLE_SUB ainda nao existe. Edicao permanece bloqueada.'
+            exit 0
+          fi
+          if ! [[ "$BL2_ALLOWED_SUB" =~ ^[0-9]{12,40}$ ]]; then
+            echo 'FALHA: C3_ADMIN_GOOGLE_SUB possui formato invalido.' >&2
+            exit 1
+          fi
+          printf '%s' "$BL2_ALLOWED_SUB" | npx --yes wrangler@4.45.0 secret put C3_ADMIN_GOOGLE_SUB --config wrangler.jsonc
+          echo 'OK: subject autorizado configurado no Worker sem expor seu valor.'
+      - name: Consultar endpoints e comprovar bloqueio sem login
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://bl2-c3-admin-verificacao.chatgptset26.workers.dev'
+          for route in health shelf; do
+            curl -fsS --max-time 20 "$base/api/$route" -o "$RUNNER_TEMP/c3-$route.json"
+          done
+          status=$(curl -sS -o "$RUNNER_TEMP/c3-deny.json" -w '%{http_code}' --max-time 20 -X PATCH "$base/api/admin/shelf" -H 'Content-Type: application/json' --data '{"title":"hack","expectedVersion":1}')
+          test "$status" = 401 || { echo "FALHA: escrita anonima retornou HTTP $status, esperado 401" >&2; exit 1; }
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          p=Path(os.environ['RUNNER_TEMP'])
+          h=json.loads((p/'c3-health.json').read_text())
+          shelf=json.loads((p/'c3-shelf.json').read_text())
+          assert h['status']=='ok' and h['production'] is False
+          assert h['adminAuth']=='google-rs256'
+          assert shelf['shelf']['id']=='c1-estante'
+          print('OK: Worker C3, D1 e bloqueio de escrita anonima validados via HTTPS.')
+          PY
