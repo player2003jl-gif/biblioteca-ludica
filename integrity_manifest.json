@@ -1,17 +1,11 @@
 {
   "project": "Biblioteca Lúdica II",
-  "release": "0.5.19.2-adm0031",
-  "status": "experimental; cross-browser automatic sync real validation pending",
-  "base": "0.5.19.1-adm003-hotfix",
-  "site_index_sha256": "182940778aa82e84cab2e188ca8008846ae81d93ace4f6adc9aae2b45098a285",
-  "site_index_git_blob_sha": "32f9d6b6f8054bec0a78577ad6340110fa82440b",
-  "previous_main_commit": "5607e52c91742a53b9bd1000f7a675c509fd318c",
-  "backup_branch": "backup-main-v0519-1-antes-adm0031",
-  "features": [
-    "remote update without local changes",
-    "editor-aware safe receive",
-    "legacy false-conflict recovery",
-    "pre-restore mutation check"
-  ],
+  "release": "0.5.19.3-adm004-experimental",
+  "status": "experimental, not published to main, real Google Drive browser A/B homologation pending",
+  "base": "0.5.19.2-adm0031",
+  "site_index_sha256": "767631ee155b75c6ae9a8af05028e95d74bf67b0dcb2c2148d1f79025864df52",
+  "site_index_git_blob_sha": "e5afb3f9579f0715af96b2f46631aa326320e9de",
+  "base_main_commit": "80804d8362b3c8df344bdc2d6807acf8abb171e1",
+  "scope": "canonical administrative state, restore integrity, no full reload, lightweight polling",
   "graphics_and_reader_unchanged": true
 }
