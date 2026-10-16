@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bl2-c1-r2-verificacao",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-16",
+  "workers_dev": true,
+  "r2_buckets": [
+    {
+      "binding": "BOOKS",
+      "bucket_name": "bl2-c1-teste-r2"
+    }
+  ]
+}
