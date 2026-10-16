@@ -1,0 +1,37 @@
+name: Gerar copia visual C2 Cloudflare (somente branch experimental)
+on:
+  push:
+    branches: [preview-c2-cloudflare-20261016]
+    paths: ['.github/workflows/gerar-preview-c2.yml']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Gerar copia local isolada sem alterar arquivos existentes
+        run: python3 scripts/gerar_preview_cloudflare_c2.py
+      - name: Comprovar que nenhum arquivo anterior foi modificado
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git diff --name-only -- index.html homologacao-adm004/index.html integrity_manifest.json)"
+          test -f homologacao-cloudflare-c2/index.html
+          node --check homologacao-cloudflare-c2/cloudflare-c2.js
+      - name: Registrar somente pagina nova na branch experimental
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add homologacao-cloudflare-c2/index.html
+          if ! git diff --cached --quiet; then
+            git commit -m "test(c2): gerar copia do jogo com estante vinculada ao D1"
+            git push origin HEAD:preview-c2-cloudflare-20261016
+          fi
