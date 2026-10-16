@@ -1,0 +1,45 @@
+name: C3 - homologar preview Google + Worker HTTPS
+
+on:
+  push:
+    branches: [preview-c3-admin-20261016]
+    paths: ['.github/workflows/conferir-preview-c3.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Comprovar HTML e JavaScript C3 publicados em GitHub Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://player2003jl-gif.github.io/biblioteca-ludica/homologacao-cloudflare-c3'
+          code=$(curl -sSL --max-time 30 -o "$RUNNER_TEMP/c3-preview.html" -w '%{http_code}' "$base/")
+          test "$code" = 200 || { echo "Preview C3 nao encontrado: HTTP $code" >&2; exit 1; }
+          curl -fsSL --max-time 20 "$base/cloudflare-c3.js" -o "$RUNNER_TEMP/cloudflare-c3.js"
+          node --check "$RUNNER_TEMP/cloudflare-c3.js"
+          grep -q 'cloudflare-c3.js' "$RUNNER_TEMP/c3-preview.html"
+          grep -q 'C3 · ADMIN GOOGLE / TESTE ISOLADO' "$RUNNER_TEMP/c3-preview.html"
+          grep -q 'editor-shelf-save-name' "$RUNNER_TEMP/cloudflare-c3.js"
+          grep -q 'accounts.google.com/gsi/client' "$RUNNER_TEMP/cloudflare-c3.js"
+          echo "OK: Biblioteca visual C3 no GitHub Pages e script Google acessiveis."
+      - name: Verificar CORS e login negado sem token no Worker real
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://bl2-c3-admin-verificacao.chatgptset26.workers.dev'
+          curl -fsS --max-time 20 -H 'Origin: https://player2003jl-gif.github.io' -D "$RUNNER_TEMP/cors" "$base/api/shelf" -o "$RUNNER_TEMP/shelf"
+          grep -qi '^access-control-allow-origin: https://player2003jl-gif.github.io' "$RUNNER_TEMP/cors"
+          status=$(curl -sS --max-time 20 -X PATCH -o "$RUNNER_TEMP/deny" -w '%{http_code}' "$base/api/admin/shelf" -H 'Content-Type: application/json' --data '{"title":"nao autorizado","expectedVersion":3}')
+          test "$status" = 401 || { echo "FALHA: gravacao anonima recebeu HTTP $status" >&2; exit 1; }
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          shelf=json.loads((Path(os.environ["RUNNER_TEMP"])/"shelf").read_text())["shelf"]
+          assert shelf["id"]=="c1-estante" and isinstance(shelf["version"],int)
+          print("OK: API consulta revisao no D1, CORS correto e escrita anonima bloqueada.")
+          PY
