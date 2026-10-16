@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bl2-c3-admin-verificacao",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-16",
+  "workers_dev": true,
+  "vars": {
+    "GOOGLE_CLIENT_ID": "605685743440-8hcd7v8jfmcg0j5oso5lrfh30uvnhnm9.apps.googleusercontent.com"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "bl2-c1-teste-d1",
+      "database_id": "SUBSTITUIR_PELO_UUID_D1"
+    }
+  ]
+}
