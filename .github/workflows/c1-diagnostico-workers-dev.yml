@@ -1,0 +1,58 @@
+name: C1 - diagnosticar disponibilidade publica do Worker
+
+on:
+  push:
+    branches:
+      - infra-c1-cloudflare-20261016
+    paths:
+      - .github/workflows/c1-diagnostico-workers-dev.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Consultar configuracao workers.dev e codigo HTTP sem revelar secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os, json, urllib.request, urllib.error, socket
+          token=os.environ["CLOUDFLARE_API_TOKEN"]
+          account=os.environ["CLOUDFLARE_ACCOUNT_ID"]
+          host="bl2-c1-verificacao.chatgptset26.workers.dev"
+          config="https://api.cloudflare.com/client/v4/accounts/"+account+"/workers/scripts/bl2-c1-verificacao/subdomain"
+          try:
+              req=urllib.request.Request(config,headers={"Authorization":"Bearer "+token})
+              with urllib.request.urlopen(req,timeout=15) as resp:
+                  obj=json.load(resp)
+              if obj.get("success"):
+                  result=obj.get("result",{})
+                  print("workers.dev habilitado para Worker:",result.get("enabled"))
+                  print("URLs preview habilitadas:",result.get("previews_enabled"))
+              else:
+                  print("Consulta da configuracao: resposta API nao conclusiva.")
+          except urllib.error.HTTPError as e:
+              print("Consulta configuracao: HTTP",e.code)
+          except Exception as e:
+              print("Consulta configuracao: falhou em",type(e).__name__)
+          try:
+              ips=socket.getaddrinfo(host,443,type=socket.SOCK_STREAM)
+              print("DNS resolvido:",bool(ips))
+          except Exception as e:
+              print("DNS indisponivel:",type(e).__name__)
+          try:
+              with urllib.request.urlopen("https://"+host+"/api/health",timeout=12) as resp:
+                  print("HTTPS status:",resp.status)
+                  print("Conteudo publico:",resp.read(280).decode("utf-8","replace"))
+          except urllib.error.HTTPError as e:
+              print("HTTPS status:",e.code)
+              print("Resposta publica:",e.read(280).decode("utf-8","replace"))
+          except Exception as e:
+              print("HTTPS falhou em:",type(e).__name__)
+          PY
