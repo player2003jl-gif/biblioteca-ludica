@@ -1,0 +1,25 @@
+name: C2 - teste visual A/B - nova revisao no D1
+
+on:
+  push:
+    branches: [infra-c1-cloudflare-20261016]
+    paths: ['.github/workflows/c2-mudar-estante-ao-vivo.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bl2-c2-estante-test
+  cancel-in-progress: false
+
+jobs:
+  revisao-ao-vivo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Atualizar somente estante ficticia no D1 isolado
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 backend/c1-cloudflare/c2-worker/scripts/test_live_revision.py
