@@ -1,0 +1,93 @@
+name: C2 - provar estante compartilhada em D1
+
+on:
+  push:
+    branches: [infra-c1-cloudflare-20261016]
+    paths:
+      - .github/workflows/c2-verificar-estante-compartilhada.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bl2-c2-estante-test
+  cancel-in-progress: false
+
+jobs:
+  c2:
+    name: Implantar Worker C2 e testar escrita concorrente
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: backend/c1-cloudflare/c2-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Executar testes locais
+        run: node --test test/*.test.mjs
+      - name: Resolver banco D1 de teste existente
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: python3 scripts/configure_d1.py
+      - name: Gerar segredo temporario exclusivo para a prova C2
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import secrets,os
+          token=secrets.token_urlsafe(48)
+          print('::add-mask::'+token)
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('C2_ADMIN_TOKEN='+token+'\n')
+          print('OK: token C2 temporario gerado, valor oculto.')
+          PY
+      - name: Implantar exclusivamente Worker C2
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4.45.0 deploy --config wrangler.jsonc
+      - name: Configurar autorizacao da estante ficticia no Cloudflare
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$C2_ADMIN_TOKEN" | npx --yes wrangler@4.45.0 secret put C2_ADMIN_TOKEN --config wrangler.jsonc
+          echo 'OK: segredo de homologacao C2 configurado sem imprimir seu valor.'
+      - name: Dois clientes independentes consultam e verificam conflitos
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://bl2-c2-estante-verificacao.chatgptset26.workers.dev"
+          ok=0
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS --connect-timeout 8 --max-time 15 "$base/api/shelf" -o "$RUNNER_TEMP/c2-before.json"; then ok=1; break; fi
+            sleep 5
+          done
+          if [ "$ok" -ne 1 ]; then echo 'FALHA: GET shelf nao respondeu.' >&2; exit 1; fi
+          version=$(python3 -c 'import json,sys; s=json.load(open(sys.argv[1]))["shelf"]; assert s["id"]=="c1-estante"; assert s["version"]>=1; print(s["version"])' "$RUNNER_TEMP/c2-before.json")
+          payload=$(printf '{"title":"Estante C2 compartilhada em teste","expectedVersion":%s}' "$version")
+          code=$(curl -sS --max-time 20 -o "$RUNNER_TEMP/c2-write.json" -w '%{http_code}' -X PATCH "$base/api/shelf" -H "Authorization: Bearer $C2_ADMIN_TOKEN" -H 'Content-Type: application/json' --data-raw "$payload")
+          test "$code" = 200 || { echo "FALHA: escrita autorizada retornou HTTP $code" >&2; exit 1; }
+          curl -fsS "$base/api/shelf" -o "$RUNNER_TEMP/c2-after.json"
+          code_stale=$(curl -sS --max-time 20 -o "$RUNNER_TEMP/c2-stale.json" -w '%{http_code}' -X PATCH "$base/api/shelf" -H "Authorization: Bearer $C2_ADMIN_TOKEN" -H 'Content-Type: application/json' --data-raw "$payload")
+          test "$code_stale" = 409 || { echo "FALHA: edicao antiga nao retornou 409 (HTTP $code_stale)" >&2; exit 1; }
+          code_unauth=$(curl -sS --max-time 20 -o "$RUNNER_TEMP/c2-unauth.json" -w '%{http_code}' -X PATCH "$base/api/shelf" -H 'Content-Type: application/json' --data-raw "$payload")
+          test "$code_unauth" = 401 || { echo "FALHA: edicao sem autorizacao nao retornou 401 (HTTP $code_unauth)" >&2; exit 1; }
+          python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          d=Path(os.environ["RUNNER_TEMP"])
+          a=json.loads((d/"c2-before.json").read_text())["shelf"]
+          w=json.loads((d/"c2-write.json").read_text())["shelf"]
+          b=json.loads((d/"c2-after.json").read_text())["shelf"]
+          assert b["version"]==a["version"]+1
+          assert w["version"]==b["version"]
+          assert b["title"]=="Estante C2 compartilhada em teste"
+          print("OK: cliente A salvou; cliente B recuperou por nova consulta HTTP.")
+          print("OK: revisao antiga recebeu 409 e escrita anonima recebeu 401.")
+          print("R2 e acervo real permanecem fora deste teste.")
+          PY
