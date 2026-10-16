@@ -1,24 +1,29 @@
-# Biblioteca Lúdica II — v0.5.19.2 ADM-003.1 (experimental)
+# Biblioteca Lúdica II — v0.5.19.3 ADM-004 (experimental)
 
-**Biblioteca pública:** https://player2003jl-gif.github.io/biblioteca-ludica/
+**Esta ramificação não é a publicação GitHub Pages.** A versão pública na `main` continua na v0.5.19.2.
 
-A v0.5.19.2 corrige a recepção automática de revisões administrativas do Google Drive entre navegadores, sem alterar a experiência gráfica nem o Hub EPUB V3.
+## Objetivo
 
-## Correções
-- Revisões remotas recentes são recebidas automaticamente quando a assinatura local coincide com a última revisão conhecida e não há edições locais pendentes.
-- O modo de edição aberto adia a aplicação da revisão remota até que seja seguro, sem produzir falso conflito.
-- Pendências de conflito indevidas de versões anteriores não impedem o recebimento quando as assinaturas provam ausência de mudanças locais.
-- Revisões concorrentes ou mudanças locais continuam exigindo decisão expressa do administrador.
-- Nova verificação antes da restauração impede sobrescrever modificações iniciadas durante um download.
+Corrigir de forma estrutural os falsos conflitos de sincronização entre navegadores A/B sem alterar sprites, salas, estantes ou o Hub EPUB V3.
 
-## Integridade e continuidade
-- SHA-256 do `index.html`: `182940778aa82e84cab2e188ca8008846ae81d93ace4f6adc9aae2b45098a285`
-- Git blob SHA do `index.html`: `32f9d6b6f8054bec0a78577ad6340110fa82440b`
-- Commit anterior público: `5607e52c91742a53b9bd1000f7a675c509fd318c`
-- Backup anterior: `backup-main-v0519-1-antes-adm0031`
-- A implementação foi testada com navegadores simulados; o teste com Google Drive real deve ser repetido para homologação.
+## Mudanças
 
-## Segurança
-O GitHub Pages é público e não fornece autenticação própria à interface administrativa. A conta Google conectada protege o armazenamento privado do Drive; os dados dessa conta não se tornam públicos. Não publicar livros privados, tokens, segredos ou backups no repositório público.
+- Assinatura canônica contempla somente dados administrativos: planta, móveis, catálogo, fichas e arquivos.
+- Zoom, progresso de leitura, empréstimos de sessão, notas e outras preferências pessoais não participam do hash administrativo compartilhado.
+- Recuperação remota restaura apenas a parte administrativa, preserva o estado pessoal local e faz checagem de integridade e rollback.
+- Migração conservadora de revisões antigas, com identificação de ancestralidade e bloqueio de casos ambíguos.
+- Restauração evita recarregar a página e perder autorização OAuth em memória.
+- Consulta periódica compara dados leves antes de gerar snapshot completo.
+- Painel administrativo exibe motivo do bloqueio, base local e revisão remota.
 
-Continue exportando backups ZIP ADM-001 independentes. A publicação para visitantes e o controle de autorização de alterações oficiais continuam sendo objetivos do plano de conclusão do hub.
+## Verificação automatizada
+
+Passaram testes locais de projeção canônica, reconexão e conflito, migração legada, restauração com rollback, 120 EPUBs sintéticos e 20 ciclos de consulta.
+
+SHA-256 do `index.html`: `767631ee155b75c6ae9a8af05028e95d74bf67b0dcb2c2148d1f79025864df52`.
+
+Git blob SHA: `e5afb3f9579f0715af96b2f46631aa326320e9de`.
+
+**Ainda falta homologação real com dois navegadores conectados ao Google Drive. Não considerar o problema resolvido apenas pelos testes locais.**
+
+Antes de qualquer migração em produção, exportar backup ZIP ADM-001. Nunca publicar credenciais, EPUBs privados ou backups no repositório público.
