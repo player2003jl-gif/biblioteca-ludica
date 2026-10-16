@@ -1,0 +1,107 @@
+name: BL2 D1 official A / archive B - isolated staging
+on:
+  push:
+    branches: [homologacao-layout-d1-a-b-20261016]
+    paths:
+      - 'homologacao-cloudflare-layout/**'
+      - '.github/workflows/bl2-d1-layout-staging.yml'
+permissions:
+  contents: read
+concurrency:
+  group: bl2-d1-layout-staging
+  cancel-in-progress: false
+jobs:
+  deploy-layout-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      BL2_ALLOWED_SUB: ${{ secrets.BL2_ALLOWED_SUB }}
+      CI: 'true'
+    defaults:
+      run:
+        working-directory: homologacao-cloudflare-layout
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Fail safely if Cloudflare credentials are unavailable
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "BLOCKED: CLOUDFLARE_API_TOKEN unavailable"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "BLOCKED: CLOUDFLARE_ACCOUNT_ID unavailable"; exit 1; }
+          node --check src/index.js
+      - name: Create or locate only the isolated D1 homologation database
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os,json,urllib.request,urllib.parse
+          account=os.environ['CLOUDFLARE_ACCOUNT_ID']
+          token=os.environ['CLOUDFLARE_API_TOKEN']
+          name='bl2-layout-homologacao-a-b-20261016'
+          url='https://api.cloudflare.com/client/v4/accounts/'+account+'/d1/database'
+          headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'}
+          req=urllib.request.Request(url+'?name='+urllib.parse.quote(name),headers=headers)
+          with urllib.request.urlopen(req,timeout=25) as f: listing=json.load(f)
+          if not listing.get('success'):raise RuntimeError('D1 list failed')
+          databases=[d for d in listing['result'] if d.get('name')==name]
+          if len(databases)>1:raise RuntimeError('multiple staging databases found; refusing')
+          if databases:
+            d=databases[0]
+            print('Reusing precisely named isolated staging D1.')
+          else:
+            req=urllib.request.Request(url,headers=headers,data=json.dumps({'name':name}).encode(),method='POST')
+            with urllib.request.urlopen(req,timeout=25) as f: response=json.load(f)
+            if not response.get('success'):raise RuntimeError('isolated database creation failed')
+            d=response['result'];print('Created new isolated staging D1.')
+          uuid=d['uuid']
+          if not __import__('re').fullmatch('[0-9a-fA-F-]{36}',uuid):raise RuntimeError('invalid D1 UUID')
+          cfg={'name':'bl2-layout-homologacao-a-b-20261016','main':'src/index.js',
+               'compatibility_date':'2026-10-16','workers_dev':True,
+               'vars':{'GOOGLE_CLIENT_ID':'605685743440-8hcd7v8jfmcg0j5oso5lrfh30uvnhnm9.apps.googleusercontent.com'},
+               'd1_databases':[{'binding':'DB','database_name':name,'database_id':uuid,'migrations_dir':'migrations'}]}
+          open('wrangler.json','w',encoding='utf8').write(json.dumps(cfg,indent=2))
+          PY
+      - name: Apply only homologation migrations and immutable B historical record
+        run: npx --yes wrangler@4.45.0 d1 migrations apply DB --remote --config wrangler.json
+      - name: Verify official revision A and private archived variant B in D1
+        run: |
+          npx --yes wrangler@4.45.0 d1 execute DB --remote --config wrangler.json --command "SELECT revision, sha256 FROM bl2_published_layout WHERE id='official';"
+          npx --yes wrangler@4.45.0 d1 execute DB --remote --config wrangler.json --command "SELECT archive_id,canonical_revision,historical_sha256 FROM bl2_layout_archived_variants;"
+      - name: Deploy isolated worker (no production Worker or D1 changes)
+        run: npx --yes wrangler@4.45.0 deploy --config wrangler.json
+      - name: Configure admin allowlist only when existing secret is present
+        run: |
+          if [ -n "$BL2_ALLOWED_SUB" ]; then
+            printf '%s' "$BL2_ALLOWED_SUB" | npx --yes wrangler@4.45.0 secret put C3_ADMIN_GOOGLE_SUB --config wrangler.json
+            echo "Admin allowlist configured in staging Worker."
+          else
+            echo "NOTICE: BL2_ALLOWED_SUB absent. Read-only staging works; administrative writes remain blocked."
+          fi
+      - name: HTTPS GET official A plus anonymous-write prohibition
+        run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error,json,time
+          root='https://bl2-layout-homologacao-a-b-20261016.chatgptset26.workers.dev'
+          state=None
+          for attempt in range(6):
+            try:
+              with urllib.request.urlopen(root+'/api/v1/layout',timeout=18) as f:state=json.load(f)
+              break
+            except Exception:
+              time.sleep(3)
+          if state is None:raise RuntimeError('Worker not reachable or D1 not initialized')
+          assert state['revision']==1 and state['sha256']=='f5dca6f869db6508c8b55f75bcc60c51a2b96379e636e36665df23f1b4ff63ee'
+          objects=state['layout']['rooms']['hall']
+          shelf=next(x for x in objects if x['id']=='user-mv9ym902-2')
+          assert shelf['shelfName']=='teste999' and (shelf['x'],shelf['y'])==(416,448)
+          req=urllib.request.Request(root+'/api/v1/admin/layout',
+            data=b'{"expectedRevision":1,"layout":{}}',method='PUT',
+            headers={'Content-Type':'application/json','Origin':'https://player2003jl-gif.github.io'})
+          try:urllib.request.urlopen(req,timeout=18);raise RuntimeError('anonymous write unexpectedly accepted')
+          except urllib.error.HTTPError as e:
+            if e.code!=401:raise
+          print('VERIFIED: HTTPS D1 revision 1 A; history B separately stored; anonymous PUT denied.')
+          print('STAGING URL: '+root+'/api/v1/layout')
+          PY
