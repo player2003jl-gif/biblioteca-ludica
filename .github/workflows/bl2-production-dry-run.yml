@@ -1,0 +1,52 @@
+name: BL2 Production Promotion Dry Run
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/bl2-promote-online.cjs'
+      - 'online/**'
+      - '.github/workflows/bl2-production-dry-run.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify clients
+        run: |
+          node --check online/d1-sync.js
+          node --check online/catalog-sync.js
+          node --check scripts/bl2-promote-online.cjs
+      - name: Build production HTML without modifying repository
+        run: node scripts/bl2-promote-online.cjs index.html /tmp/index-online.html
+      - name: Verify integration invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object index.html)" = "909e0fd49e902a5f51a6c2074d2b3330ebd3c5e1"
+          test "$(wc -c < /tmp/index-online.html)" -gt 19000000
+          grep -Fq './online/d1-sync.js' /tmp/index-online.html
+          grep -Fq './online/catalog-sync.js' /tmp/index-online.html
+          grep -Fq 'async function ensureRemoteFile(book)' /tmp/index-online.html
+          grep -Fq 'function commitConfirmed()' /tmp/index-online.html
+          ! grep -Fq 'ADM-003.1 v0.5.19.2 experimental' /tmp/index-online.html
+      - name: Verify live Cloudflare before promotion
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://bl2-api.chatgptset26.workers.dev'
+          curl -fsS "$base/api/v1/layout" -o /tmp/layout.json
+          curl -fsS "$base/api/v1/catalog" -o /tmp/catalog.json
+          curl -fsS "$base/api/v1/layout/history-match?sha=f5dca6f869db6508c8b55f75bcc60c51a2b96379e636e36665df23f1b4ff63ee" -o /tmp/history.json
+          python3 - <<'PY'
+          import json
+          L=json.load(open('/tmp/layout.json'));C=json.load(open('/tmp/catalog.json'));H=json.load(open('/tmp/history.json'))
+          assert L['revision']>=14
+          assert C['revision']>=1 and len(C['catalog']['books'])>=1
+          assert H.get('known') is True and H.get('revision')==1
+          print('DRY_RUN_CLOUDFLARE_OK layout_r%d catalog_r%d books=%d'%(L['revision'],C['revision'],len(C['catalog']['books'])))
+          PY
