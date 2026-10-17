@@ -23,6 +23,15 @@ const r=await fetch(API+'/api/v1/layout',{cache:'no-store',credentials:'omit',si
 const d=await r.json();if(!Number.isSafeInteger(d.revision)||d.revision<1||!d.layout||!/^[a-f0-9]{64}$/.test(d.sha256))throw Error('Resposta incompleta');
 if(await hash(d.layout)!==d.sha256)throw Error('Hash remoto inválido');return d;
 }finally{clearTimeout(timer);}}
+async function historyMatch(sha){
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),10000);
+ try{
+  const r=await fetch(API+'/api/v1/layout/history-match?sha='+encodeURIComponent(sha),{cache:'no-store',credentials:'omit',signal:ctrl.signal});
+  if(!r.ok)throw Error('history HTTP '+r.status);
+  const d=await r.json();
+  return d&&d.known===true&&Number.isSafeInteger(d.revision)?d:null;
+ }finally{clearTimeout(timer);}
+}
 function apply(d){const original=clone(core.bundle()),old=localStorage.getItem(KEY),prior=S.base;
 try{core.applyLayout(d.layout);localStorage.setItem(KEY,JSON.stringify(core.bundle()));mark(d.revision,d.sha256);S.ready=true;S.conflict=false;}
 catch(e){try{core.applyLayout(original)}catch{};try{old===null?localStorage.removeItem(KEY):localStorage.setItem(KEY,old)}catch{};S.base=prior;throw e;}}
@@ -33,7 +42,13 @@ if(S.first){S.first=false;
 if(localStorage.getItem(DRAFT)){S.conflict=true;message('Rascunho local detectado: exporte e concilie.','true');return;}
 if(m&&m.sha256===current){S.base=m;S.ready=true;}
 else if(current===d.sha256){mark(d.revision,d.sha256);S.ready=true;message('Layout igual ao D1, sincronizado.');return;}
-else if(localStorage.getItem(KEY)!==null){S.conflict=true;message('Layout local antigo difere do D1: faça backup antes de optar pelo central.',true);return;}
+else if(localStorage.getItem(KEY)!==null){
+ const known=await historyMatch(current).catch(()=>null);
+ if(known){
+  apply(d);message('Layout local reconhecido como revisão histórica r'+known.revision+'. Revisão atual D1 r'+d.revision+' aplicada automaticamente.');return;
+ }
+ S.conflict=true;message('Layout local não corresponde a nenhuma revisão publicada conhecida: faça backup antes de optar pelo central.',true);return;
+}
 else if(!core.dirty){apply(d);message('Layout D1 r'+d.revision+' carregado automaticamente.');return;}}
 if(S.conflict){message('Conflito ou rascunho local: sincronização adiada; exporte JSON.',true);return;}
 if(S.base?.revision===d.revision&&S.base.sha256===d.sha256){if(force)message('D1 sincronizado · r'+d.revision);return;}
