@@ -1,0 +1,49 @@
+name: BL2 Production Public Smoke
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bl2-production-smoke.yml]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait for GitHub Pages production release
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://player2003jl-gif.github.io/biblioteca-ludica/'
+          ok=0
+          for n in $(seq 1 18); do
+            if curl -fsS --connect-timeout 8 --max-time 30 "$url" -o /tmp/public.html; then
+              if grep -Fq './online/d1-sync.js' /tmp/public.html && grep -Fq './online/catalog-sync.js' /tmp/public.html; then ok=1; break; fi
+            fi
+            sleep 10
+          done
+          test "$ok" = 1
+          ! grep -Fq 'ADM-003.1 v0.5.19.2 experimental' /tmp/public.html
+          test "$(wc -c < /tmp/public.html)" -gt 19000000
+          curl -fsS 'https://player2003jl-gif.github.io/biblioteca-ludica/online/d1-sync.js' -o /tmp/d1.js
+          curl -fsS 'https://player2003jl-gif.github.io/biblioteca-ludica/online/catalog-sync.js' -o /tmp/catalog.js
+          grep -Fq "https://bl2-api.chatgptset26.workers.dev" /tmp/d1.js
+          grep -Fq "https://bl2-api.chatgptset26.workers.dev" /tmp/catalog.js
+      - name: Verify live Cloudflare data after public deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://bl2-api.chatgptset26.workers.dev'
+          curl -fsS "$base/api/v1/layout" -o /tmp/layout.json
+          curl -fsS "$base/api/v1/catalog" -o /tmp/catalog.json
+          python3 - <<'PY'
+          import json,subprocess
+          L=json.load(open('/tmp/layout.json'));C=json.load(open('/tmp/catalog.json'))
+          books=C['catalog']['books']
+          assert L['revision']>=14
+          assert C['revision']>=1 and len(books)==3
+          for b in books:
+            r=subprocess.run(['curl','-fsSI',f"https://bl2-api.chatgptset26.workers.dev/api/v1/assets/{b['assetSha256']}"],capture_output=True,text=True,check=True)
+            assert 'application/epub+zip' in r.stdout.lower()
+          print('PUBLIC_SMOKE_OK layout_r%d catalog_r%d books=%d'%(L['revision'],C['revision'],len(books)))
+          PY
