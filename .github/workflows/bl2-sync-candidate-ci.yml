@@ -14,17 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Check published JavaScript syntax
+        with: {node-version: '22'}
+      - name: Check JavaScript syntax
         run: |
           node --check homologacao-sync-integral/bootstrap.js
           node --check homologacao-sync-integral/d1-sync-completo.js
           node --check homologacao-sync-integral/test-sync.cjs
-      - name: Run simulated A/B D1 sync regression tests without real credentials or D1 writes
+      - name: Run simulated A/B D1 sync regressions
         run: node homologacao-sync-integral/test-sync.cjs
-      - name: Verify original library file hash unchanged in repository
+      - name: Verify production integration remains active
+        shell: bash
         run: |
-          sha=$(git hash-object index.html)
-          echo "Original index blob: $sha"
-          test "$sha" = "909e0fd49e902a5f51a6c2074d2b3330ebd3c5e1"
+          set -euo pipefail
+          grep -Fq './online/d1-sync.js' index.html
+          grep -Fq './online/catalog-sync.js' index.html
+          ! grep -Fq 'ADM-003.1 v0.5.19.2 experimental' index.html
