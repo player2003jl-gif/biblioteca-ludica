@@ -50,15 +50,22 @@ async function load(force=false){
   if(!Number.isSafeInteger(d.revision)||d.revision<1||!/^[0-9a-f]{64}$/.test(d.sha256))throw Error('Resposta D1 invalida');
   shape(d.layout);const changed=!S.remote||S.remote.revision!==d.revision;
   S.remote=d;S.correction=correction(d.layout);
-  if(!changed){if(force)message('D1 confirmou revisão '+d.revision);return;}
+  // A revisao pode ter sido consultada sem ser aplicada durante um gesto de edicao.
+  // So marcar sincronizado quando o layout realmente chegou ao editor.
+  const needsApply=S.active&&S.revision!==d.revision;
+  if(!changed&&!needsApply){if(force)message('D1 confirmou revisão '+d.revision);return;}
   if(!S.active){
    const c=S.correction;
    message('Revisão r'+d.revision+' consultada, mas ainda não aplicada. '+(c?
     'Estante fora da área permitida ('+c.from.x+','+c.from.y+'). Proposta: ('+c.to.x+','+c.to.y+'). Nada será alterado sem aprovação.':
     'Baixe primeiro um JSON local de segurança.'),!!c);return;
   }
-  if(S.conflict||dirty()||editor.isEditing){
+  if(S.conflict||dirty()){
    S.conflict=true;message('Revisão nova detectada. Edição local não substituída. Exporte JSON, encerre a edição e reconcilie.',true);return;
+  }
+  if(editor.isBusyGesture){
+   message('Revisão r'+d.revision+' recebida durante arraste ou posicionamento. Aplicação adiada sem conflito; tentarei novamente.');
+   return;
   }
   if(S.correction){
    S.conflict=true;message('Revisão remota inválida para colisões do editor: não aplicada.',true);return;
