@@ -1,0 +1,31 @@
+name: BL2 R2 capability probe
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bl2-r2-probe.yml]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Verify Cloudflare R2 access without creating or changing buckets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          python3 - <<'PY'
+          import json,os,urllib.request
+          u='https://api.cloudflare.com/client/v4/accounts/'+os.environ['CLOUDFLARE_ACCOUNT_ID']+'/r2/buckets'
+          req=urllib.request.Request(u,headers={'Authorization':'Bearer '+os.environ['CLOUDFLARE_API_TOKEN']})
+          with urllib.request.urlopen(req,timeout=25) as r: data=json.load(r)
+          if not data.get('success'): raise RuntimeError('R2 API returned unsuccessful result')
+          names=[x.get('name') for x in data.get('result',{}).get('buckets',[]) if isinstance(x,dict)]
+          print('R2_ACCESS_OK buckets_visible='+str(len(names)))
+          print('Target exists='+str('bl2-epubs' in names))
+          PY
