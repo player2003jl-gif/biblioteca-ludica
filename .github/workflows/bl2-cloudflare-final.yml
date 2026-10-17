@@ -1,0 +1,97 @@
+name: BL2 Cloudflare final API deploy
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare-final/**'
+      - '.github/workflows/bl2-cloudflare-final.yml'
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      BL2_ALLOWED_SUB: ${{ secrets.BL2_ALLOWED_SUB }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Validate source
+        run: node --check cloudflare-final/src/index.js
+      - name: Ensure R2 bucket and resolve D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          python3 - <<'PY'
+          import json,os,urllib.request,urllib.error,urllib.parse,re
+          account=os.environ['CLOUDFLARE_ACCOUNT_ID']; token=os.environ['CLOUDFLARE_API_TOKEN']
+          H={'Authorization':'Bearer '+token,'Content-Type':'application/json'}
+          # R2 bucket
+          r2='https://api.cloudflare.com/client/v4/accounts/'+account+'/r2/buckets'
+          with urllib.request.urlopen(urllib.request.Request(r2,headers=H),timeout=30) as r:data=json.load(r)
+          names=[x.get('name') for x in data.get('result',{}).get('buckets',[]) if isinstance(x,dict)]
+          if 'bl2-epubs' not in names:
+            req=urllib.request.Request(r2,headers=H,data=json.dumps({'name':'bl2-epubs'}).encode(),method='POST')
+            with urllib.request.urlopen(req,timeout=30) as r: made=json.load(r)
+            if not made.get('success'): raise RuntimeError('R2 create failed')
+            print('Created R2 bl2-epubs')
+          else: print('R2 bl2-epubs already exists')
+          # Existing D1 used by validated layout
+          d1='https://api.cloudflare.com/client/v4/accounts/'+account+'/d1/database'
+          with urllib.request.urlopen(urllib.request.Request(d1+'?name='+urllib.parse.quote('bl2-layout-homologacao-a-b-20261016'),headers=H),timeout=30) as r:dbs=json.load(r)
+          matches=[d for d in dbs.get('result',[]) if d.get('name')=='bl2-layout-homologacao-a-b-20261016']
+          if len(matches)!=1: raise RuntimeError('Expected exactly one validated D1')
+          uuid=matches[0]['uuid']
+          if not re.fullmatch(r'[0-9a-fA-F-]{36}',uuid): raise RuntimeError('Bad D1 UUID')
+          cfg={
+            'name':'bl2-api','main':'src/index.js','compatibility_date':'2026-10-17','workers_dev':True,
+            'vars':{'GOOGLE_CLIENT_ID':'605685743440-8hcd7v8jfmcg0j5oso5lrfh30uvnhnm9.apps.googleusercontent.com'},
+            'd1_databases':[{'binding':'DB','database_name':'bl2-layout-homologacao-a-b-20261016','database_id':uuid,'migrations_dir':'migrations'}],
+            'r2_buckets':[{'binding':'BOOKS','bucket_name':'bl2-epubs'}]
+          }
+          open('cloudflare-final/wrangler.json','w').write(json.dumps(cfg,indent=2))
+          print('Resolved D1 and R2 bindings')
+          PY
+      - name: Apply catalog migration
+        working-directory: cloudflare-final
+        run: npx --yes wrangler@4.45.0 d1 migrations apply DB --remote --config wrangler.json
+      - name: Deploy final Worker
+        working-directory: cloudflare-final
+        run: npx --yes wrangler@4.45.0 deploy --config wrangler.json
+      - name: Configure administrator allowlist
+        working-directory: cloudflare-final
+        run: |
+          set -euo pipefail
+          test -n "$BL2_ALLOWED_SUB" || { echo 'BL2_ALLOWED_SUB missing'; exit 1; }
+          printf '%s' "$BL2_ALLOWED_SUB" | npx --yes wrangler@4.45.0 secret put C3_ADMIN_GOOGLE_SUB --config wrangler.json
+      - name: Verify final API read paths and anonymous-write blocks
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://bl2-api.chatgptset26.workers.dev'
+          for n in 1 2 3 4 5; do
+            if curl -fsS --connect-timeout 8 --max-time 20 "$base/api/v1/health" -o /tmp/health.json; then break; fi
+            sleep 3
+          done
+          python3 - <<'PY'
+          import json
+          h=json.load(open('/tmp/health.json'))
+          assert h=={'ok':True,'service':'bl2-api','layout':True,'catalog':True,'r2':True}
+          PY
+          curl -fsS "$base/api/v1/layout" -o /tmp/layout.json
+          curl -fsS "$base/api/v1/catalog" -o /tmp/catalog.json
+          python3 - <<'PY'
+          import json
+          l=json.load(open('/tmp/layout.json')); c=json.load(open('/tmp/catalog.json'))
+          assert l['revision']>=14 and l['layout']['architecture']=='reception-library-virtual-reading'
+          assert c['revision']>=0 and c['catalog']['version']==1 and isinstance(c['catalog']['books'],list)
+          print('Verified layout revision',l['revision'],'catalog revision',c['revision'])
+          PY
+          code=$(curl -sS -o /tmp/deny.json -w '%{http_code}' -X PUT "$base/api/v1/admin/catalog" -H 'Origin: https://player2003jl-gif.github.io' -H 'Content-Type: application/json' --data '{"expectedRevision":0,"catalog":{"version":1,"books":[]}}')
+          test "$code" = '401'
+          echo 'Anonymous admin write denied as expected'
