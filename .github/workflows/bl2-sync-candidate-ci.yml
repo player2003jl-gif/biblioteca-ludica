@@ -1,0 +1,30 @@
+name: BL2 Sync Candidate CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'homologacao-sync-integral/**'
+      - '.github/workflows/bl2-sync-candidate-ci.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check published JavaScript syntax
+        run: |
+          node --check homologacao-sync-integral/bootstrap.js
+          node --check homologacao-sync-integral/d1-sync-completo.js
+          node --check homologacao-sync-integral/test-sync.cjs
+      - name: Run simulated A/B D1 sync regression tests without real credentials or D1 writes
+        run: node homologacao-sync-integral/test-sync.cjs
+      - name: Verify original library file hash unchanged in repository
+        run: |
+          sha=$(git hash-object index.html)
+          echo "Original index blob: $sha"
+          test "$sha" = "909e0fd49e902a5f51a6c2074d2b3330ebd3c5e1"
