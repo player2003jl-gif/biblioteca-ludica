@@ -1,0 +1,36 @@
+name: BL2 checkpoint D1 public read-only snapshot
+on:
+  push:
+    branches: [homologacao-layout-d1-a-b-20261016]
+    paths: [.github/workflows/bl2-checkpoint-d1-readonly.yml]
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Read current public D1 layout without authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          api='https://bl2-layout-homologacao-a-b-20261016.chatgptset26.workers.dev/api/v1/layout'
+          for n in 1 2 3 4 5; do
+            if curl -fsS --connect-timeout 8 --max-time 18 "$api" -o /tmp/layout.json; then break; fi
+            sleep 2
+          done
+          python3 - <<'PY'
+          import json,hashlib
+          x=json.load(open('/tmp/layout.json',encoding='utf8'))
+          obj=x['layout']
+          assert isinstance(x.get('revision'),int) and x['revision']>=1
+          assert isinstance(x.get('sha256'),str)
+          actual=hashlib.sha256(json.dumps(obj,separators=(',',':'),ensure_ascii=False).encode()).hexdigest()
+          assert actual==x['sha256'], 'checksum mismatch'
+          assert obj.get('architecture')=='reception-library-virtual-reading'
+          assert any(o.get('id')=='user-mv9ym902-2' for o in obj['rooms']['hall'])
+          print('CHECKPOINT_BEGIN_JSON')
+          print(json.dumps(x,separators=(',',':'),ensure_ascii=False))
+          print('CHECKPOINT_END_JSON')
+          print('Verified remote revision:',x['revision'])
+          PY
