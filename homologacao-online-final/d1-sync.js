@@ -85,7 +85,7 @@ if($('d1-sync-refresh'))$('d1-sync-refresh').onclick=()=>void refresh(true);
 if($('d1-sync-save'))$('d1-sync-save').onclick=()=>void save();
 function login(){const node=$('d1-sync-login');if(!node)return;
 const start=()=>{if(!window.google?.accounts?.id){message('Google indisponível.',true);return;}
-google.accounts.id.initialize({client_id:GOOGLE,auto_select:false,callback:r=>{S.token=typeof r?.credential==='string'?r.credential:null;window.dispatchEvent(new CustomEvent('bl2:admin-auth',{detail:{token:S.token}}));message(S.token?'Google conectado; autorização será verificada pelo Worker.':'Login não concluído.',!S.token);update();}});
+google.accounts.id.initialize({client_id:GOOGLE,auto_select:false,callback:r=>{S.token=typeof r?.credential==='string'?r.credential:null;if(typeof CustomEvent==='function')window.dispatchEvent(new CustomEvent('bl2:admin-auth',{detail:{token:S.token}}));message(S.token?'Google conectado; autorização será verificada pelo Worker.':'Login não concluído.',!S.token);update();}});
 google.accounts.id.renderButton(node,{theme:'outline',size:'medium',text:'signin_with'});};
 if(window.google?.accounts?.id)start();else{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.onload=start;s.onerror=()=>message('Google indisponível.',true);document.head.appendChild(s);}}
 window.__BL2_D1_BRIDGE__={saveFromEditor:save,refresh,backup,get token(){return S.token},get status(){return{active:S.ready,revision:S.base?.revision,remoteRevision:S.remote?.revision,conflict:S.conflict};}};
