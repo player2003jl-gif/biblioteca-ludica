@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Biblioteca Lúdica II — Publicação segura da conciliação E5</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,Segoe UI,sans-serif;background:#171c20;color:#eae2d4}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 40% -10%,#30383b,#171c20 66%)}
+header{padding:24px 20px;border-bottom:1px solid #756346;background:#161b1eea}
+main{max-width:950px;padding:26px 20px 60px;margin:auto}
+h1,h2{font-family:Georgia,serif;color:#f0cc94;font-weight:500}h1{font-size:clamp(24px,4vw,38px);margin:8px 0}
+h2{font-size:22px}.overline{font-size:12px;letter-spacing:.1em;font-weight:700;color:#dcb57f}
+p{color:#c8c5be;line-height:1.65}
+.card{border:1px solid #77674e;border-radius:12px;padding:20px;background:#242a2de8;margin:16px 0}
+.status{font-size:15px;border-left:3px solid #bd9861;padding:13px 14px;background:#34342c;color:#ead7b8}
+.status[data-kind="error"]{border-color:#e2877a;background:#443133;color:#ffd5d0}
+.status[data-kind="ok"]{border-color:#95bf8c;background:#25372f;color:#d8f0d1}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:18px 0}
+th,td{border-bottom:1px solid #4d5451;padding:12px 8px;text-align:left}
+th{color:#efd19c}td{color:#e3ded5}strong{color:#f2ddba}
+button{padding:12px 16px;background:#333d40;color:#f4e6cc;border:1px solid #927c5c;border-radius:8px;font:inherit;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}button.primary{background:#ba8b55;color:#151a1b;border-color:#e2b878;font-weight:700}
+button:focus-visible,input:focus-visible{outline:2px solid #ecb86c;outline-offset:3px}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
+label.approval{display:flex;align-items:flex-start;gap:11px;line-height:1.6;background:#252b28;padding:14px;border:1px solid #67705e;border-radius:9px}
+input[type=checkbox]{width:19px;height:19px;margin-top:2px;accent-color:#d5ad69}
+small,.help{color:#b8b7ad;font-size:13px}
+a{color:#efd096}code{background:#1a2223;padding:2px 4px;color:#e9bc78}
+@media(max-width:560px){.card{padding:14px}th,td{font-size:12px}button{width:100%}}
+</style></head><body>
+<header><div style="max-width:950px;margin:auto"><div class="overline">BIBLIOTECA LÚDICA II · CLOUDFLARE D1 · HOMOLOGAÇÃO</div>
+<h1>Conciliação E5 — publicação controlada</h1>
+<p>Esta ferramenta aplica somente a alteração aprovada da estante do navegador A sobre a revisão 13, preservando a mesa publicada pelo navegador B.</p>
+</div></header>
+<main>
+<section class="card">
+<h2>1. Conferência do estado remoto</h2>
+<p id="status" class="status" role="status" aria-live="polite">Consultando o Cloudflare D1…</p>
+<p><strong>Revisão remota:</strong> <span id="revision">—</span> · <strong>Hash remoto:</strong> <code id="remote-sha">—</code></p>
+<button id="refresh" type="button">Verificar revisão agora</button>
+<p class="help">A publicação só pode ocorrer se o D1 continuar exatamente na revisão 13 auditada. Se houver uma revisão posterior, o procedimento será bloqueado sem sobrescrever dados.</p>
+</section>
+<section class="card"><h2>2. Resultado que será publicado</h2>
+<table><thead><tr><th>Objeto</th><th>Antes (D1 r13)</th><th>Resultado E5</th></tr></thead>
+<tbody>
+<tr><td>Mesa da Recepção <code>h-table</code></td><td>X 64 · Y 480</td><td><strong>X 64 · Y 480</strong> (preservar B)</td></tr>
+<tr><td>Estante <code>teste2026</code></td><td>X 144 · Y 368</td><td><strong>X 544 · Y 368</strong> (incorporar A)</td></tr>
+</tbody></table>
+<p>Salas, portas, outros móveis, NPCs e configurações serão mantidos idênticos à revisão 13. A publicação não inclui EPUBs, empréstimos nem progresso de leitura.</p>
+</section>
+<section class="card"><h2>3. Backup, login e confirmação</h2>
+<p>Primeiro, faça o download de uma cópia da revisão 13 do D1. Em seguida, entre com sua conta Google administradora e confirme o layout.</p>
+<div class="actions"><button id="download" disabled>Baixar backup remoto r13 (.json)</button></div>
+<div id="google-login" aria-label="Login Google administrativo"></div>
+<div style="height:14px"></div>
+<label class="approval"><input id="approve" type="checkbox" disabled>
+<span><strong>Confirmo a publicação da conciliação E5.</strong> Manter a mesa em (64, 480) e mover somente a estante <code>teste2026</code> para (544, 368), criando uma nova revisão apenas se a r13 ainda for válida.</span></label>
+<div class="actions"><button class="primary" id="publish" disabled>Publicar conciliação E5 no D1</button></div>
+<p class="help">O botão requer login, backup e confirmação. Antes de gravar, o sistema reconfere o estado remoto, verifica a integridade criptográfica e utiliza controle de revisão. Não há gravação automática.</p></section>
+<p><a href="./">Voltar à homologação do editor gráfico</a> · <a href="../">Voltar à biblioteca pública</a></p>
+</main><script src="./e5-conciliacao.js" defer></script>
+</body></html>
