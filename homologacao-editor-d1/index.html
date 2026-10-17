@@ -17,7 +17,7 @@ try{
  once("const K='BL2_layout_044_TWO_ROOMS';","const K='BL2_STAGING_D1_EDITOR_LAYOUT_20261016';");
  once('else restoreLegacyShelfSettings();','else /* homologação isolada D1: sem migração automática do legado */ void 0;');
  const oldSave="function save(){try{localStorage.setItem(K,JSON.stringify(bundle()));dirty=false;\n    msg('Layout, dimensões e posições das portas salvos neste navegador. Exporte JSON como backup.');app.note('EDITOR_SAVE','Layout salvo');window.dispatchEvent(new CustomEvent('bl2:admin-changed',{detail:{type:'layout'}}));}\n    catch(e){msg('Armazenamento indisponível. Exporte o JSON para não perder o layout.',true);}}";
- const newSave="function save(){if(window.__BL2_D1_BRIDGE__?.saveFromEditor){void window.__BL2_D1_BRIDGE__.saveFromEditor();return;}msg('D1 ainda não inicializado: exporte JSON.',true);}\n  function commitConfirmed(){localStorage.setItem(K,JSON.stringify(bundle()));dirty=false;msg('Cloudflare D1 confirmou a revisão.');app.note('EDITOR_SAVE','Revisão D1 confirmada');}";
+ const newSave="function save(){if(window.__BL2_D1_BRIDGE__?.saveFromEditor){void window.__BL2_D1_BRIDGE__.saveFromEditor();return;}msg('D1 ainda não inicializado: exporte JSON.',true);}\n  function commitConfirmed(layout){dirty=JSON.stringify(bundle())!==JSON.stringify(layout);msg('Cloudflare D1 confirmou a revisão.');app.note('EDITOR_SAVE','Revisão D1 confirmada');}";
  once(oldSave,newSave);
  once('get isEditing(){return inEdit;},','commitConfirmed,get dirty(){return dirty;},get isEditing(){return inEdit;},get isBusyGesture(){return !!dragging || !!placingScene;},');
  once('Nome da estante atualizado e salvo.','Nome alterado: aguardando confirmação do D1.');
@@ -27,13 +27,17 @@ try{
  const section='<section class="admin-backup-section" aria-label="Sincronização privada do Google Drive">';
  const ui='<section class="admin-backup-section" aria-label="Homologação Cloudflare D1 — editor completo">'+
   '<h3>Cloudflare D1 · Editor gráfico completo</h3>'+
-  '<p class="editor-help">CÓPIA DE HOMOLOGAÇÃO: sincronização administrativa entre navegadores, sem alteração da biblioteca pública ou dos EPUBs. Antes de ativar, baixe um JSON de segurança.</p>'+
+  '<p class="editor-help">CÓPIA DE HOMOLOGAÇÃO: sincronização administrativa entre navegadores, sem alteração da biblioteca pública ou dos EPUBs. O layout central carrega automaticamente quando não há pendências locais. Rascunhos são preservados neste navegador.</p>'+
   '<p id="bl2-d1-status" role="status" aria-live="polite">Consultando revisão oficial…</p>'+
-  '<p><strong>Revisão D1:</strong> <span id="bl2-d1-revision">—</span> · <span id="bl2-d1-mode">Aguardando ativação</span></p>'+
-  '<div class="admin-backup-controls"><button id="bl2-d1-backup" type="button">1 · Baixar JSON local</button>'+
-  '<button id="bl2-d1-activate" type="button" disabled>2 · Usar revisão D1</button>'+
-  '<button id="bl2-d1-repair" type="button" disabled>2 · Propor ajuste geométrico, sem publicar</button></div>'+
-  '<p class="editor-help">E7 · Atualização de homologação: o layout administrativo continua no Cloudflare D1, separado do código da página. Um eventual ajuste geométrico exige confirmação antes de publicar.</p>'+
+  '<p><strong>Revisão D1:</strong> <span id="bl2-d1-revision">—</span> · <span id="bl2-d1-mode">Consultando D1</span></p>'+
+  '<div class="admin-backup-controls"><button id="bl2-d1-backup" type="button">Baixar segurança local (JSON)</button>'+
+  '<button id="bl2-d1-activate" type="button" disabled>Usar revisão D1 após backup</button>'+
+  '<button id="bl2-d1-repair" type="button" disabled>Propor ajuste geométrico, sem publicar</button></div>'+
+  '<p class="editor-help">E8 · Recuperação em teste: a última revisão confirmada e os rascunhos ficam separados. Uma falha de rede não publica nem descarta edições. Publicações continuam exigindo login.</p>'+
+  '<p id="bl2-d1-local-status" role="status"></p>'+
+  '<div class="admin-backup-controls"><label>Rascunhos preservados <select id="bl2-d1-drafts"></select></label>'+
+  '<button id="bl2-d1-recover" type="button">Recuperar rascunho selecionado</button>'+
+  '<button id="bl2-d1-archive" type="button">Arquivar rascunho após backup</button></div>'+
   '<div id="bl2-d1-google" aria-label="Autenticação Google de administrador"></div>'+
   '<div class="admin-backup-controls"><button id="bl2-d1-save" type="button" disabled>Salvar no D1</button>'+
   '<button id="bl2-d1-refresh" type="button">Conferir revisão</button>'+
@@ -41,7 +45,7 @@ try{
   '<p class="editor-help">Os botões originais de salvar ambiente e nome da estante também gravam pelo D1. Edições locais não são apagadas em caso de conflito. EPUBs, histórico de leitura e empréstimos não são enviados.</p></section>';
  once(section,ui+'\n<section class="admin-backup-section" hidden style="display:none!important" aria-label="Sincronização privada do Google Drive">');
  const end=s.lastIndexOf('</body>');if(end<0)throw Error('Fechamento do HTML não encontrado');
- const inject='<div id="bl2-d1-strip" role="note" style="position:fixed;bottom:0;left:0;right:0;z-index:2147483610;background:#403322;color:#f8dca5;border-top:1px solid #c6a16b;font:12px/1.4 system-ui,sans-serif;padding:5px 10px;text-align:center;pointer-events:none">HOMOLOGAÇÃO D1 · E7 — atualização de código, dados preservados no D1 · não é a biblioteca pública</div><script src="./d1-editor-bridge.js" defer><\/script>';
+ const inject='<div id="bl2-d1-strip" role="note" style="position:fixed;bottom:0;left:0;right:0;z-index:2147483610;background:#403322;color:#f8dca5;border-top:1px solid #c6a16b;font:12px/1.4 system-ui,sans-serif;padding:5px 10px;text-align:center;pointer-events:none">HOMOLOGAÇÃO D1 · E8 — carregamento automático e recuperação em teste · não é a biblioteca pública</div><script src="./d1-editor-bridge.js?v=e8-20261017" defer><\/script>';
  s=s.slice(0,end)+inject+s.slice(end);
  document.open();document.write(s);document.close();
 }catch(e){fail(e);}
