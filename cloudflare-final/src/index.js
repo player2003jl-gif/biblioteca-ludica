@@ -141,8 +141,11 @@ export default {async fetch(req,env){
    if(!(await auth(req,env)))return fail(req,401,'unauthorized');
    const type=(req.headers.get('Content-Type')||'').split(';')[0].trim();
    if(type!=='application/epub+zip')return fail(req,415,'EPUB required');
-   const len=Number(req.headers.get('Content-Length')||0);if(!Number.isFinite(len)||len<1||len>60*1024*1024)return fail(req,413,'invalid size');
-   const bytes=await req.arrayBuffer();if(bytes.byteLength!==len)return fail(req,400,'size mismatch');
+   const stated=req.headers.get('Content-Length'),len=stated===null?null:Number(stated);
+   if(len!==null&&(!Number.isFinite(len)||len<1||len>60*1024*1024))return fail(req,413,'invalid size');
+   const bytes=await req.arrayBuffer();
+   if(bytes.byteLength<1||bytes.byteLength>60*1024*1024)return fail(req,413,'invalid size');
+   if(len!==null&&bytes.byteLength!==len)return fail(req,400,'size mismatch');
    const hash=await shaBytes(bytes);if(hash!==m[1])return fail(req,400,'sha256 mismatch');
    const name=(req.headers.get('X-BL2-File-Name')||'').replace(/[\r\n]/g,' ').slice(0,240);
    await env.BOOKS.put('assets/'+hash,bytes,{httpMetadata:{contentType:type},customMetadata:{originalName:name}});
