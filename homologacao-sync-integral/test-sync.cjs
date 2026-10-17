@@ -33,6 +33,13 @@ function make(preload=null){
 (async()=>{
  const a=make(),b=make();await a.wait();await b.wait();
  assert(a.status().active&&b.status().active,'fresh auto hydration');
+ // Regression: metadata can say the current revision while the editor visual state is stale.
+ // With no unsaved edits, refresh must reapply the remote layout instead of falsely saying synchronized.
+ const z=make();await z.wait();const expectedZ=deep(z.editor.bundle()),staleZ=deep(expectedZ);
+ staleZ.rooms.hall[0].y=expectedZ.rooms.hall[0].y+77;z.editor.applyLayout(staleZ);
+ assert.equal(z.status().revision,rev,'metadata remains on the current revision before regression refresh');
+ await z.refresh();
+ assert.equal(z.editor.bundle().rooms.hall[0].y,expectedZ.rooms.hall[0].y,'same-revision stale visual state must be reapplied from D1');
  a.login();a.editor.mutate(s=>{s.rooms.hall[0].y=464});assert.equal(await a.save(),true);assert.equal(rev,15);
  await b.refresh();assert.equal(b.editor.bundle().rooms.hall[0].y,464,'A to B');
  b.login();b.editor.mutate(s=>{s.rooms.hall[1].x=528});assert.equal(await b.save(),true);
@@ -45,5 +52,5 @@ function make(preload=null){
  const d=make({'BL2_layout_044_TWO_ROOMS':JSON.stringify(old)});d.editor.applyLayout(old);await d.wait();
  assert(d.status().conflict,'old local state protected');assert.equal(d.editor.bundle().rooms.hall[0].y,900);
  const noauth=make();await noauth.wait();noauth.editor.mutate(s=>{s.rooms.hall[0].y=440});assert.equal(await noauth.save(),false);assert(noauth.disk.has('BL2_D1_LAYOUT_RASCUNHO_V2'));
- console.log('PASS: automatic D1 initial load, A→B, B→A, conflict, durable draft, legacy safety, unauthorized save.');
+ console.log('PASS: automatic D1 initial load, same-revision visual reapply, A→B, B→A, conflict, durable draft, legacy safety, unauthorized save.');
 })().catch(e=>{console.error(e);process.exitCode=1});
