@@ -1,0 +1,40 @@
+name: BL2 Final Online Read Audit
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bl2-final-online-audit.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Audit live D1 layout, history match, catalog and R2 objects
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://bl2-api.chatgptset26.workers.dev'
+          curl -fsS "$base/api/v1/layout" -o /tmp/layout.json
+          curl -fsS "$base/api/v1/layout/history-match?sha=f5dca6f869db6508c8b55f75bcc60c51a2b96379e636e36665df23f1b4ff63ee" -o /tmp/history.json
+          curl -fsS "$base/api/v1/catalog" -o /tmp/catalog.json
+          python3 - <<'PY'
+          import json,subprocess
+          L=json.load(open('/tmp/layout.json'));H=json.load(open('/tmp/history.json'));C=json.load(open('/tmp/catalog.json'))
+          assert L['revision']>=14
+          assert H.get('known') is True and H.get('revision')==1
+          books=C['catalog']['books']
+          assert C['revision']>=1 and len(books)>=1
+          assert len({b['assetSha256'] for b in books})>=1
+          for b in books:
+            p=subprocess.run(['curl','-fsSI',f"https://bl2-api.chatgptset26.workers.dev/api/v1/assets/{b['assetSha256']}"],capture_output=True,text=True,check=True)
+            headers={}
+            for line in p.stdout.splitlines():
+              if ':' in line:
+                k,v=line.split(':',1);headers[k.lower().strip()]=v.strip()
+            assert headers.get('content-type','').startswith('application/epub+zip')
+            assert int(headers.get('content-length','0'))==b['size']
+          print('AUDIT_OK layout_r%d catalog_r%d books=%d assets=%d historical_A_r1=known'%(L['revision'],C['revision'],len(books),len({b['assetSha256'] for b in books})))
+          PY
+      - name: Verify public index is still the checkpointed version before promotion
+        run: test "$(git hash-object index.html)" = "909e0fd49e902a5f51a6c2074d2b3330ebd3c5e1"
