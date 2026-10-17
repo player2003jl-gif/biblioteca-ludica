@@ -1,0 +1,53 @@
+name: BL2 Online Final CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'homologacao-online-final/**'
+      - '.github/workflows/bl2-online-final-ci.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Check JavaScript syntax
+        run: |
+          node --check homologacao-online-final/bootstrap.js
+          node --check homologacao-online-final/d1-sync.js
+          node --check homologacao-online-final/catalog-sync.js
+          node --check homologacao-online-final/test-bootstrap.cjs
+          node --check homologacao-online-final/test-catalog.cjs
+      - name: Verify pinned full HTML integration
+        run: node homologacao-online-final/test-bootstrap.cjs
+      - name: Repeat layout A/B regression against online candidate
+        run: |
+          sed 's#homologacao-sync-integral/d1-sync-completo.js#homologacao-online-final/d1-sync.js#' homologacao-sync-integral/test-sync.cjs > /tmp/test-layout.cjs
+          node /tmp/test-layout.cjs
+      - name: Install isolated IndexedDB test dependency
+        run: npm install --no-save --no-package-lock fake-indexeddb@6
+      - name: Simulate catalog migration and lazy EPUB retrieval
+        run: node homologacao-online-final/test-catalog.cjs
+      - name: Verify live final Cloudflare API is readable
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://bl2-api.chatgptset26.workers.dev'
+          curl -fsS --connect-timeout 8 --max-time 20 "$base/api/v1/health" -o /tmp/health.json
+          curl -fsS --connect-timeout 8 --max-time 20 "$base/api/v1/layout" -o /tmp/layout.json
+          curl -fsS --connect-timeout 8 --max-time 20 "$base/api/v1/catalog" -o /tmp/catalog.json
+          python3 - <<'PY'
+          import json
+          h=json.load(open('/tmp/health.json'));l=json.load(open('/tmp/layout.json'));c=json.load(open('/tmp/catalog.json'))
+          assert h.get('ok') and h.get('layout') and h.get('catalog') and h.get('r2')
+          assert l['revision']>=14 and l['layout']['architecture']=='reception-library-virtual-reading'
+          assert c['revision']>=0 and c['catalog']['version']==1
+          print('LIVE_API_OK layout_r%s catalog_r%s'%(l['revision'],c['revision']))
+          PY
+      - name: Verify production index remains untouched
+        run: |
+          test "$(git hash-object index.html)" = "909e0fd49e902a5f51a6c2074d2b3330ebd3c5e1"
