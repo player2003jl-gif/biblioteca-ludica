@@ -1,0 +1,26 @@
+name: BL2 E5 audit layout history READ ONLY
+on:
+  push:
+    branches: [homologacao-layout-d1-a-b-20261016]
+    paths: [.github/workflows/bl2-e5-audit-history.yml]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Do not write - inspect A/B common ancestor layout object positions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          cat > wrangler.e5.json <<'JSON'
+          {"name":"bl2-e5-history-audit-only","compatibility_date":"2026-10-16","d1_databases":[{"binding":"DB","database_name":"bl2-layout-homologacao-a-b-20261016","database_id":"700d8744-2b83-457e-98b3-0a1ccf74c72f"}]}
+          JSON
+          npx --yes wrangler@4.45.0 d1 execute DB --remote --config wrangler.e5.json --command "SELECT revision, json_extract(json,'$.rooms.hall[1].y') AS h_table_y, json_extract(json,'$.rooms.hall[2].x') AS shelf_x, json_extract(json,'$.rooms.hall[2].y') AS shelf_y, sha256 FROM bl2_layout_history WHERE revision IN (10,11,12,13) ORDER BY revision;"
+          echo 'Read-only history audit complete.'
