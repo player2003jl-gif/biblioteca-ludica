@@ -7,6 +7,7 @@ const $=id=>document.getElementById(id),core=window.__BL2_EDITOR__;
 if(!core?.bundle||!core?.applyLayout||!core?.commitConfirmed)return;
 const S={remote:null,base:null,token:null,busy:false,reading:false,conflict:false,ready:false,backed:false,first:true};
 const clone=x=>JSON.parse(JSON.stringify(x)),decode=s=>{try{return JSON.parse(s)}catch{return null}};
+const canonical=x=>JSON.stringify(x,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(k=>[k,v[k]])):v),equal=(a,b)=>canonical(a)===canonical(b);
 const bytes=new TextEncoder(),hash=async obj=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes.encode(JSON.stringify(obj)))),x=>x.toString(16).padStart(2,'0')).join('');
 const pending=()=>!!core.dirty||!!localStorage.getItem(DRAFT)||S.conflict;
 function message(t,bad=false){const n=$('d1-sync-status');if(n){n.textContent=t;n.style.color=bad?'#ffc2b6':'#d5edc6';}}
@@ -31,12 +32,17 @@ try{const d=await read(),changed=!S.remote||S.remote.revision!==d.revision||S.re
 const current=await hash(core.bundle()),m=base();
 if(S.first){S.first=false;
 if(localStorage.getItem(DRAFT)){S.conflict=true;message('Rascunho local detectado: exporte e concilie.','true');return;}
-if(m&&m.sha256===current){S.base=m;S.ready=true;}
-else if(current===d.sha256){mark(d.revision,d.sha256);S.ready=true;message('Layout igual ao D1, sincronizado.');return;}
+if(m&&m.revision===d.revision&&m.sha256===d.sha256&&equal(core.bundle(),d.layout)){S.base=m;S.ready=true;}
+else if(equal(core.bundle(),d.layout)){mark(d.revision,d.sha256);S.ready=true;message('Layout igual ao D1, sincronizado.');return;}
 else if(localStorage.getItem(KEY)!==null){S.conflict=true;message('Layout local antigo difere do D1: faça backup antes de optar pelo central.',true);return;}
 else if(!core.dirty){apply(d);message('Layout D1 r'+d.revision+' carregado automaticamente.');return;}}
 if(S.conflict){message('Conflito ou rascunho local: sincronização adiada; exporte JSON.',true);return;}
-if(S.base?.revision===d.revision&&S.base.sha256===d.sha256){if(force)message('D1 sincronizado · r'+d.revision);return;}
+if(S.base?.revision===d.revision&&S.base.sha256===d.sha256){
+ if(equal(core.bundle(),d.layout)){if(force)message('D1 sincronizado · r'+d.revision);return;}
+ if(core.isBusyGesture){message('Metadados r'+d.revision+' atualizados, mas o editor ainda está em gesto. Reaplicação adiada.');return;}
+ if(pending()){S.conflict=true;draft();message('Metadados apontam para r'+d.revision+', mas há edição local diferente. Trabalho preservado; concilie antes de substituir.',true);return;}
+ apply(d);message('Revisão r'+d.revision+' reaplicada: metadados estavam atualizados, mas o layout visual estava divergente.');return;
+}
 if(core.isBusyGesture){message('Revisão remota r'+d.revision+' aguardando fim do arraste.');return;}
 if(pending()||(S.base&&current!==S.base.sha256)){S.conflict=true;draft();message('Mudança local preservada. Concilie antes de sincronizar.',true);return;}
 if(!changed&&S.ready)return;
