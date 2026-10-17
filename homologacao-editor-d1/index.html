@@ -33,7 +33,7 @@ try{
   '<div class="admin-backup-controls"><button id="bl2-d1-backup" type="button">1 · Baixar JSON local</button>'+
   '<button id="bl2-d1-activate" type="button" disabled>2 · Usar revisão D1</button>'+
   '<button id="bl2-d1-repair" type="button" disabled>2 · Propor ajuste geométrico, sem publicar</button></div>'+
-  '<p class="editor-help">A estante de testes da revisão 6 possui coordenadas incompatíveis com a parede da Recepção. O ajuste proposto só é publicado por ação expressa após login Google.</p>'+
+  '<p class="editor-help">E7 · Atualização de homologação: o layout administrativo continua no Cloudflare D1, separado do código da página. Um eventual ajuste geométrico exige confirmação antes de publicar.</p>'+
   '<div id="bl2-d1-google" aria-label="Autenticação Google de administrador"></div>'+
   '<div class="admin-backup-controls"><button id="bl2-d1-save" type="button" disabled>Salvar no D1</button>'+
   '<button id="bl2-d1-refresh" type="button">Conferir revisão</button>'+
@@ -41,7 +41,7 @@ try{
   '<p class="editor-help">Os botões originais de salvar ambiente e nome da estante também gravam pelo D1. Edições locais não são apagadas em caso de conflito. EPUBs, histórico de leitura e empréstimos não são enviados.</p></section>';
  once(section,ui+'\n<section class="admin-backup-section" hidden style="display:none!important" aria-label="Sincronização privada do Google Drive">');
  const end=s.lastIndexOf('</body>');if(end<0)throw Error('Fechamento do HTML não encontrado');
- const inject='<div id="bl2-d1-strip" role="note" style="position:fixed;bottom:0;left:0;right:0;z-index:2147483610;background:#403322;color:#f8dca5;border-top:1px solid #c6a16b;font:12px/1.4 system-ui,sans-serif;padding:5px 10px;text-align:center;pointer-events:none">HOMOLOGAÇÃO D1 — não é a biblioteca pública</div><script src="./d1-editor-bridge.js" defer><\/script>';
+ const inject='<div id="bl2-d1-strip" role="note" style="position:fixed;bottom:0;left:0;right:0;z-index:2147483610;background:#403322;color:#f8dca5;border-top:1px solid #c6a16b;font:12px/1.4 system-ui,sans-serif;padding:5px 10px;text-align:center;pointer-events:none">HOMOLOGAÇÃO D1 · E7 — atualização de código, dados preservados no D1 · não é a biblioteca pública</div><script src="./d1-editor-bridge.js" defer><\/script>';
  s=s.slice(0,end)+inject+s.slice(end);
  document.open();document.write(s);document.close();
 }catch(e){fail(e);}
