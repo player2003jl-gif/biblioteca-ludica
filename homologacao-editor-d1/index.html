@@ -19,7 +19,7 @@ try{
  const oldSave="function save(){try{localStorage.setItem(K,JSON.stringify(bundle()));dirty=false;\n    msg('Layout, dimensões e posições das portas salvos neste navegador. Exporte JSON como backup.');app.note('EDITOR_SAVE','Layout salvo');window.dispatchEvent(new CustomEvent('bl2:admin-changed',{detail:{type:'layout'}}));}\n    catch(e){msg('Armazenamento indisponível. Exporte o JSON para não perder o layout.',true);}}";
  const newSave="function save(){if(window.__BL2_D1_BRIDGE__?.saveFromEditor){void window.__BL2_D1_BRIDGE__.saveFromEditor();return;}msg('D1 ainda não inicializado: exporte JSON.',true);}\n  function commitConfirmed(){localStorage.setItem(K,JSON.stringify(bundle()));dirty=false;msg('Cloudflare D1 confirmou a revisão.');app.note('EDITOR_SAVE','Revisão D1 confirmada');}";
  once(oldSave,newSave);
- once('get isEditing(){return inEdit;},','commitConfirmed,get dirty(){return dirty;},get isEditing(){return inEdit;},');
+ once('get isEditing(){return inEdit;},','commitConfirmed,get dirty(){return dirty;},get isEditing(){return inEdit;},get isBusyGesture(){return !!dragging || !!placingScene;},');
  once('Nome da estante atualizado e salvo.','Nome alterado: aguardando confirmação do D1.');
  const rx=/<script>\s*\/\* Biblioteca Lúdica II — ADM-003\.1 v0\.5\.19\.2 experimental\.[\s\S]*?<\/script>/;
  if(!rx.test(s))throw Error('Script legado Drive não encontrado');
