@@ -1,0 +1,39 @@
+name: BL2 staging HTTPS final verification
+on:
+  push:
+    branches: [homologacao-layout-d1-a-b-20261016]
+    paths: [.github/workflows/bl2-layout-curl-verify.yml]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check official revision from public staging GET
+        shell: bash
+        run: |
+          set -euo pipefail
+          root='https://bl2-layout-homologacao-a-b-20261016.chatgptset26.workers.dev'
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS --connect-timeout 8 --max-time 15 "$root/api/v1/layout" -o /tmp/bl2.json; then break; fi
+            sleep 2
+          done
+          python3 - <<'PY'
+          import json,hashlib
+          with open('/tmp/bl2.json',encoding='utf8') as f:s=json.load(f)
+          assert s['revision']==1, 'official revision not 1'
+          assert s['sha256']=='f5dca6f869db6508c8b55f75bcc60c51a2b96379e636e36665df23f1b4ff63ee'
+          layout=s['layout']
+          assert hashlib.sha256(json.dumps(layout,ensure_ascii=False,separators=(',',':')).encode()).hexdigest()==s['sha256']
+          shelves=[x for x in layout['rooms']['hall'] if x['id']=='user-mv9ym902-2']
+          assert len(shelves)==1
+          assert shelves[0]['shelfName']=='teste999' and (shelves[0]['x'],shelves[0]['y'])==(416,448)
+          print('OK: official A, revision 1, one shelf, SHA-256 verified against response')
+          PY
+          code=$(curl -sS --connect-timeout 8 --max-time 15 -o /tmp/bl2-deny.json -w '%{http_code}' \
+            -X PUT "$root/api/v1/admin/layout" -H 'Origin: https://player2003jl-gif.github.io' \
+            -H 'Content-Type: application/json' --data '{"expectedRevision":1,"layout":{}}')
+          if [ "$code" != '401' ]; then echo "FAIL: anonymous PUT status $code" >&2; exit 1; fi
+          echo 'OK: unauthorized write rejected with 401'
+ 
