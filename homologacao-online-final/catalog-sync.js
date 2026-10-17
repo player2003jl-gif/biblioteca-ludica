@@ -13,7 +13,7 @@ function update(){const n=$('d1-catalog-revision');if(n)n.textContent='Catálogo
 function readMeta(){try{const x=JSON.parse(localStorage.getItem(META)||'null');return x&&Number.isSafeInteger(x.revision)&&/^[a-f0-9]{64}$/.test(x.sha256)?x:null}catch{return null}}
 function setMeta(r,h){S.meta={revision:r,sha256:h};localStorage.setItem(META,JSON.stringify(S.meta));}
 function setPending(v){S.pending=!!v;if(v)localStorage.setItem(PENDING,'1');else localStorage.removeItem(PENDING);update();}
-function openDb(){return new Promise((resolve,reject)=>{const q=indexedDB.open(DB,DB_VERSION);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);q.onupgradeneeded=()=>{};});}
+function openDb(){return new Promise((resolve,reject)=>{const q=indexedDB.open(DB,DB_VERSION);q.onupgradeneeded=()=>{if(!q.result.objectStoreNames.contains('books')){const s=q.result.createObjectStore('books',{keyPath:'id'});s.createIndex('shelf','shelf',{unique:false});}if(!q.result.objectStoreNames.contains('settings'))q.result.createObjectStore('settings',{keyPath:'key'});};q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);q.onblocked=()=>reject(new Error('IndexedDB ocupado por outra aba'));});}
 function req(q){return new Promise((resolve,reject)=>{q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error);});}
 async function allBooks(){const db=await openDb();try{return await req(db.transaction('books','readonly').objectStore('books').getAll())}finally{db.close();}}
 async function replaceBooks(remoteBooks){const db=await openDb();try{
