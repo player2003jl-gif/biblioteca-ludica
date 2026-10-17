@@ -1,0 +1,56 @@
+name: BL2 Promote Cloudflare Sync to Production
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/bl2-promote-production.yml]
+permissions:
+  contents: write
+concurrency:
+  group: bl2-production-promotion
+  cancel-in-progress: false
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Refuse promotion if source or Cloudflare state changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git hash-object index.html)" = "909e0fd49e902a5f51a6c2074d2b3330ebd3c5e1"
+          base='https://bl2-api.chatgptset26.workers.dev'
+          curl -fsS "$base/api/v1/layout" -o /tmp/layout.json
+          curl -fsS "$base/api/v1/catalog" -o /tmp/catalog.json
+          python3 - <<'PY'
+          import json
+          L=json.load(open('/tmp/layout.json'));C=json.load(open('/tmp/catalog.json'))
+          assert L['revision']>=14 and L['layout']['architecture']=='reception-library-virtual-reading'
+          assert C['revision']>=1 and len(C['catalog']['books'])>=1
+          print('Promotion gate: layout r%d, catalog r%d, books %d'%(L['revision'],C['revision'],len(C['catalog']['books'])))
+          PY
+      - name: Build and verify production index
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/bl2-promote-online.cjs index.html /tmp/index-online.html
+          test "$(wc -c < /tmp/index-online.html)" -gt 19000000
+          grep -Fq './online/d1-sync.js' /tmp/index-online.html
+          grep -Fq './online/catalog-sync.js' /tmp/index-online.html
+          ! grep -Fq 'ADM-003.1 v0.5.19.2 experimental' /tmp/index-online.html
+          cp /tmp/index-online.html index.html
+      - name: Commit only production index
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'BL2 Release Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          test "$(git diff --cached --name-only)" = "index.html"
+          git commit -m "release(sync): Cloudflare D1/R2 administrative synchronization in public library"
+          git push origin HEAD:main
+          echo "PROMOTION_COMMIT=$(git rev-parse HEAD)"
