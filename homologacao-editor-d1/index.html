@@ -39,7 +39,7 @@ try{
   '<button id="bl2-d1-refresh" type="button">Conferir revisão</button>'+
   '<button id="bl2-d1-reconcile" type="button">Desconectar e rever</button></div>'+
   '<p class="editor-help">Os botões originais de salvar ambiente e nome da estante também gravam pelo D1. Edições locais não são apagadas em caso de conflito. EPUBs, histórico de leitura e empréstimos não são enviados.</p></section>';
- once(section,ui+'\n<section class="admin-backup-section" hidden aria-label="Sincronização privada do Google Drive">');
+ once(section,ui+'\n<section class="admin-backup-section" hidden style="display:none!important" aria-label="Sincronização privada do Google Drive">');
  const end=s.lastIndexOf('</body>');if(end<0)throw Error('Fechamento do HTML não encontrado');
  const inject='<div id="bl2-d1-strip" role="note" style="position:fixed;bottom:0;left:0;right:0;z-index:2147483610;background:#403322;color:#f8dca5;border-top:1px solid #c6a16b;font:12px/1.4 system-ui,sans-serif;padding:5px 10px;text-align:center;pointer-events:none">HOMOLOGAÇÃO D1 — não é a biblioteca pública</div><script src="./d1-editor-bridge.js" defer><\/script>';
  s=s.slice(0,end)+inject+s.slice(end);
