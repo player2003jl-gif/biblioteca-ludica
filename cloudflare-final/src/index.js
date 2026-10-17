@@ -94,6 +94,14 @@ export default {async fetch(req,env){
    if(!row?.json)return fail(req,503,'layout not initialized');
    return json(req,200,{revision:row.revision,layout:JSON.parse(row.json),sha256:row.sha256,updatedAt:row.updated_at});
   }
+  if(path==='/api/v1/layout/history-match'&&req.method==='GET'){
+   const hash=(u.searchParams.get('sha')||'').toLowerCase();
+   if(!/^[a-f0-9]{64}$/.test(hash))return fail(req,400,'invalid sha256');
+   const current=await env.DB.prepare("SELECT revision FROM bl2_published_layout WHERE id='official' AND sha256=?").bind(hash).first();
+   if(current)return json(req,200,{known:true,revision:current.revision,current:true});
+   const old=await env.DB.prepare("SELECT revision FROM bl2_layout_history WHERE sha256=? ORDER BY revision DESC LIMIT 1").bind(hash).first();
+   return json(req,200,old?{known:true,revision:old.revision,current:false}:{known:false});
+  }
   if(path==='/api/v1/admin/layout'&&req.method==='PUT'){
    if(req.headers.get('Origin')!==ORIGIN)return fail(req,403,'origin');
    if(!(await auth(req,env)))return fail(req,401,'unauthorized');
