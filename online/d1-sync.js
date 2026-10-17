@@ -19,6 +19,22 @@ function base(){const m=decode(localStorage.getItem(META));return m&&Number.isSa
 function mark(rev,sha){localStorage.setItem(META,JSON.stringify({revision:rev,sha256:sha}));S.base={revision:rev,sha256:sha};}
 function draft(){try{localStorage.setItem(DRAFT,JSON.stringify({savedAt:new Date().toISOString(),revision:S.base?.revision??null,layout:core.bundle()}));}
 catch(e){message('Falha em salvar rascunho: exporte um JSON!',true);throw e;}}
+function archiveDraft(raw,reason){
+ try{
+  const key='BL2_D1_LAYOUT_ARCHIVE_V1_'+Date.now();
+  localStorage.setItem(key,JSON.stringify({archivedAt:new Date().toISOString(),reason,raw}));
+  localStorage.removeItem(DRAFT);
+  return true;
+ }catch{return false;}
+}
+async function classifyDraft(remote){
+ const raw=localStorage.getItem(DRAFT);if(!raw)return {kind:'none'};
+ const d=decode(raw);if(!d?.layout)return {kind:'unknown'};
+ let h;try{h=await hash(d.layout)}catch{return {kind:'unknown'};}
+ if(h===remote.sha256)return {kind:'known',revision:remote.revision,current:true,raw};
+ const known=await historyMatch(h).catch(()=>null);
+ return known?{kind:'known',revision:known.revision,current:!!known.current,raw}:{kind:'unknown'};
+}
 async function read(){const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),12000);try{
 const r=await fetch(API+'/api/v1/layout',{cache:'no-store',credentials:'omit',signal:ctrl.signal});if(!r.ok)throw Error('HTTP '+r.status);
 const d=await r.json();if(!Number.isSafeInteger(d.revision)||d.revision<1||!d.layout||!/^[a-f0-9]{64}$/.test(d.sha256))throw Error('Resposta incompleta');
@@ -40,7 +56,17 @@ async function refresh(force=false){if(S.busy||S.reading||(document.hidden&&!for
 try{const d=await read(),changed=!S.remote||S.remote.revision!==d.revision||S.remote.sha256!==d.sha256;S.remote=d;
 const current=await hash(core.bundle()),m=base();
 if(S.first){S.first=false;
-if(localStorage.getItem(DRAFT)){S.conflict=true;message('Rascunho local detectado: exporte e concilie.','true');return;}
+if(localStorage.getItem(DRAFT)){
+ const ds=await classifyDraft(d);
+ if(ds.kind==='known'){
+  if(!archiveDraft(ds.raw,'Rascunho reconhecido como revisão publicada r'+ds.revision)){
+   S.conflict=true;message('Rascunho antigo reconhecido, mas não foi possível arquivá-lo com segurança. Exporte JSON antes de continuar.',true);return;
+  }
+  message('Rascunho antigo reconhecido como revisão publicada r'+ds.revision+' e arquivado localmente. Retomando sincronização.');
+ }else{
+  S.conflict=true;message('Rascunho local inédito detectado: exporte e concilie antes de substituir.',true);return;
+ }
+}
 if(m&&m.revision===d.revision&&m.sha256===d.sha256&&equal(core.bundle(),d.layout)){S.base=m;S.ready=true;}
 else if(equal(core.bundle(),d.layout)){mark(d.revision,d.sha256);S.ready=true;message('Layout igual ao D1, sincronizado.');return;}
 else if(localStorage.getItem(KEY)!==null){
