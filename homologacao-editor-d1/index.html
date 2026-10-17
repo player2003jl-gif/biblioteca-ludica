@@ -1,0 +1,48 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Biblioteca Lúdica II — Editor D1 homologação</title></head><body style="margin:0;background:#14191d;color:#eddfc2;font:16px/1.6 system-ui;padding:45px"><h1>Biblioteca Lúdica II · Homologação do editor gráfico</h1><p id="status">Carregando cópia isolada, verificando SHA-256 do checkpoint e preparando a integração Cloudflare D1…</p><script>(async()=>{
+'use strict';
+const root=document.getElementById('status');
+const fail=e=>{root.textContent='Homologação indisponível: '+e.message+'. A biblioteca pública não foi modificada.';root.style.color='#ffd2c1';};
+try{
+ const response=await fetch('../index.html',{cache:'no-store'});
+ if(!response.ok)throw Error('HTML oficial indisponível (HTTP '+response.status+')');
+ let s=await response.text();
+ const bytes=new TextEncoder().encode(s);
+ const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join('');
+ if(hash!=='0e13853af539fc097729b46a1977fe0dcfea9535aa6d8c6542f6201fa851cd94')
+   throw Error('O HTML oficial mudou desde o checkpoint; esta cópia precisa de revisão antes de ser utilizada.');
+ function once(old,replacement){
+   if(s.split(old).length!==2)throw Error('Ponto de integração não encontrado ou ambíguo: '+old.slice(0,45));
+   s=s.replace(old,replacement);
+ }
+ once("const K='BL2_layout_044_TWO_ROOMS';","const K='BL2_STAGING_D1_EDITOR_LAYOUT_20261016';");
+ once('else restoreLegacyShelfSettings();','else /* homologação isolada D1: sem migração automática do legado */ void 0;');
+ const oldSave="function save(){try{localStorage.setItem(K,JSON.stringify(bundle()));dirty=false;\n    msg('Layout, dimensões e posições das portas salvos neste navegador. Exporte JSON como backup.');app.note('EDITOR_SAVE','Layout salvo');window.dispatchEvent(new CustomEvent('bl2:admin-changed',{detail:{type:'layout'}}));}\n    catch(e){msg('Armazenamento indisponível. Exporte o JSON para não perder o layout.',true);}}";
+ const newSave="function save(){if(window.__BL2_D1_BRIDGE__?.saveFromEditor){void window.__BL2_D1_BRIDGE__.saveFromEditor();return;}msg('D1 ainda não inicializado: exporte JSON.',true);}\n  function commitConfirmed(){localStorage.setItem(K,JSON.stringify(bundle()));dirty=false;msg('Cloudflare D1 confirmou a revisão.');app.note('EDITOR_SAVE','Revisão D1 confirmada');}";
+ once(oldSave,newSave);
+ once('get isEditing(){return inEdit;},','commitConfirmed,get dirty(){return dirty;},get isEditing(){return inEdit;},');
+ once('Nome da estante atualizado e salvo.','Nome alterado: aguardando confirmação do D1.');
+ const rx=/<script>\s*\/\* Biblioteca Lúdica II — ADM-003\.1 v0\.5\.19\.2 experimental\.[\s\S]*?<\/script>/;
+ if(!rx.test(s))throw Error('Script legado Drive não encontrado');
+ s=s.replace(rx,'<!-- Drive legado desativado somente nesta homologação -->');
+ const section='<section class="admin-backup-section" aria-label="Sincronização privada do Google Drive">';
+ const ui='<section class="admin-backup-section" aria-label="Homologação Cloudflare D1 — editor completo">'+
+  '<h3>Cloudflare D1 · Editor gráfico completo</h3>'+
+  '<p class="editor-help">CÓPIA DE HOMOLOGAÇÃO: sincronização administrativa entre navegadores, sem alteração da biblioteca pública ou dos EPUBs. Antes de ativar, baixe um JSON de segurança.</p>'+
+  '<p id="bl2-d1-status" role="status" aria-live="polite">Consultando revisão oficial…</p>'+
+  '<p><strong>Revisão D1:</strong> <span id="bl2-d1-revision">—</span> · <span id="bl2-d1-mode">Aguardando ativação</span></p>'+
+  '<div class="admin-backup-controls"><button id="bl2-d1-backup" type="button">1 · Baixar JSON local</button>'+
+  '<button id="bl2-d1-activate" type="button" disabled>2 · Usar revisão D1</button>'+
+  '<button id="bl2-d1-repair" type="button" disabled>2 · Propor ajuste geométrico, sem publicar</button></div>'+
+  '<p class="editor-help">A estante de testes da revisão 6 possui coordenadas incompatíveis com a parede da Recepção. O ajuste proposto só é publicado por ação expressa após login Google.</p>'+
+  '<div id="bl2-d1-google" aria-label="Autenticação Google de administrador"></div>'+
+  '<div class="admin-backup-controls"><button id="bl2-d1-save" type="button" disabled>Salvar no D1</button>'+
+  '<button id="bl2-d1-refresh" type="button">Conferir revisão</button>'+
+  '<button id="bl2-d1-reconcile" type="button">Desconectar e rever</button></div>'+
+  '<p class="editor-help">Os botões originais de salvar ambiente e nome da estante também gravam pelo D1. Edições locais não são apagadas em caso de conflito. EPUBs, histórico de leitura e empréstimos não são enviados.</p></section>';
+ once(section,ui+'\n<section class="admin-backup-section" hidden aria-label="Sincronização privada do Google Drive">');
+ const end=s.lastIndexOf('</body>');if(end<0)throw Error('Fechamento do HTML não encontrado');
+ const inject='<div id="bl2-d1-strip" role="note" style="position:fixed;bottom:0;left:0;right:0;z-index:2147483610;background:#403322;color:#f8dca5;border-top:1px solid #c6a16b;font:12px/1.4 system-ui,sans-serif;padding:5px 10px;text-align:center;pointer-events:none">HOMOLOGAÇÃO D1 — não é a biblioteca pública</div><script src="./d1-editor-bridge.js" defer><\/script>';
+ s=s.slice(0,end)+inject+s.slice(end);
+ document.open();document.write(s);document.close();
+}catch(e){fail(e);}
+})();</script></body></html>
